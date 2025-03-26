@@ -1,17 +1,17 @@
 /* style.css */
 
 html, body {
-  margin: 0;                  /* Remove default browser spacing */
-  padding: 0;                 /* Remove default browser spacing */
-  overflow: hidden;           /* Prevent scrollbars within the iFrame if canvas slightly overflows */
-  background-color: #1a1a2e;  /* Match the P5.js sketch background for a seamless look */
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Prevent scrollbars if the scaled canvas slightly overflows the container */
+  background-color: #1a1a2e; /* Match sketch background for seamless letterboxing */
 
-  /* Make body fill the entire iFrame viewport */
+  /* Make html and body fill the entire viewport (e.g., the iframe) */
   width: 100%;
   height: 100%;
 
-  /* Optional but recommended: Use flexbox to center the canvas */
-  /* This is helpful if object-fit: contain results in letterboxing */
+  /* Use flexbox to center the canvas within the body */
+  /* This is useful for `object-fit: contain` to center the content when letterboxing occurs */
   display: flex;
   justify-content: center; /* Center horizontally */
   align-items: center;     /* Center vertically */
@@ -19,19 +19,24 @@ html, body {
 
 /* Target the canvas element created by p5.js */
 canvas {
-  display: block; /* Removes extra space below the canvas if it were inline */
+  display: block; /* Removes potential extra space below the canvas */
 
   /* --- CRITICAL Scaling Rules --- */
-  /* Make the canvas element's bounding box fill its container (the body) */
+
+  /* Rule 1: Make the canvas ELEMENT fill its container (the body) */
   width: 100%;
   height: 100%;
 
-  /* Control how the fixed-resolution canvas content scales within that box */
-  /* Choose ONE of the following: */
+  /* Rule 2: Define how the FIXED-RESOLUTION content (1280x720 from sketch.js)
+             is scaled *within* the element's bounds. */
 
-  object-fit: contain; /* Recommended: Scales while preserving aspect ratio. Adds letterboxing (empty space) if aspect ratios don't match. */
+  /* Preserves aspect ratio (16:9). Fits the whole sketch inside. Adds horizontal or vertical
+     black bars (letterboxing) if the container's aspect ratio isn't 16:9. RECOMMENDED. */
+  object-fit: contain;
 
-  /* OR */
-  /* object-fit: fill; */ /* Stretches to fill the container exactly. Distorts if aspect ratios don't match. */
-  /* ------------------------------- */
+  /* --- ALTERNATIVE (Usually not desired for games) --- */
+  /* Stretches the 1280x720 content to fill the container exactly.
+     Distorts the image if the aspect ratios don't match. */
+  /* object-fit: fill; */
+
 }

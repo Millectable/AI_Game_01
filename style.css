@@ -3,40 +3,23 @@
 html, body {
   margin: 0;
   padding: 0;
-  overflow: hidden; /* Prevent scrollbars if the scaled canvas slightly overflows the container */
+  overflow: hidden; /* Prevent scrollbars if the scaled canvas slightly overflows */
   background-color: #1a1a2e; /* Match sketch background for seamless letterboxing */
-
-  /* Make html and body fill the entire viewport (e.g., the iframe) */
   width: 100%;
   height: 100%;
-
-  /* Use flexbox to center the canvas within the body */
-  /* This is useful for `object-fit: contain` to center the content when letterboxing occurs */
   display: flex;
   justify-content: center; /* Center horizontally */
   align-items: center;     /* Center vertically */
 }
 
-/* Target the canvas element created by p5.js */
 canvas {
-  display: block; /* Removes potential extra space below the canvas */
-
-  /* --- CRITICAL Scaling Rules --- */
-
-  /* Rule 1: Make the canvas ELEMENT fill its container (the body) */
+  display: block;
   width: 100%;
   height: 100%;
 
-  /* Rule 2: Define how the FIXED-RESOLUTION content (1280x720 from sketch.js)
-             is scaled *within* the element's bounds. */
-
-  /* Preserves aspect ratio (16:9). Fits the whole sketch inside. Adds horizontal or vertical
-     black bars (letterboxing) if the container's aspect ratio isn't 16:9. RECOMMENDED. */
+  /* --- KEEP Using contain for letterboxing, where border is needed --- */
   object-fit: contain;
 
-  /* --- ALTERNATIVE (Usually not desired for games) --- */
-  /* Stretches the 1280x720 content to fill the container exactly.
-     Distorts the image if the aspect ratios don't match. */
+  /* --- Alternative (would hide the need for a border, but distorts) --- */
   /* object-fit: fill; */
-
 }

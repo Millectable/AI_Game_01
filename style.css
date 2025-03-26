@@ -1,11 +1,25 @@
+/* In style.css */
+
 html, body {
-  margin: 0;      /* Remove default browser margins */
-  padding: 0;     /* Remove default browser padding */
-  overflow: hidden; /* Hide scrollbars if canvas slightly overflows */
-  background-color: #1a1a2e; /* Match the sketch background for seamless look */
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #1a1a2e;
+  /* --- ADD THESE --- */
+  width: 100%;
+  height: 100%;
+  display: flex; /* Optional: helps center canvas if using object-fit */
+  justify-content: center; /* Optional: helps center canvas if using object-fit */
+  align-items: center; /* Optional: helps center canvas if using object-fit */
+  /* --------------- */
 }
 
-/* This targets the canvas element that p5.js creates */
 canvas {
-  display: block; /* Prevents inline spacing issues or gaps */
+  display: block;
+  /* --- ADD THESE --- */
+  width: 100%;   /* Scale canvas width to fit container (body) */
+  height: 100%;  /* Scale canvas height to fit container (body) */
+  object-fit: contain; /* Keeps aspect ratio, adds letterboxing if needed */
+  /* OR use: object-fit: fill; */ /* Stretches to fill exactly, may distort */
+  /* --------------- */
 }

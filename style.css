@@ -1,0 +1,11 @@
+html, body {
+  margin: 0;      /* Remove default browser margins */
+  padding: 0;     /* Remove default browser padding */
+  overflow: hidden; /* Hide scrollbars if canvas slightly overflows */
+  background-color: #1a1a2e; /* Match the sketch background for seamless look */
+}
+
+/* This targets the canvas element that p5.js creates */
+canvas {
+  display: block; /* Prevents inline spacing issues or gaps */
+}

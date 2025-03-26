@@ -1,25 +1,37 @@
-/* In style.css */
+/* style.css */
 
 html, body {
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  background-color: #1a1a2e;
-  /* --- ADD THESE --- */
+  margin: 0;                  /* Remove default browser spacing */
+  padding: 0;                 /* Remove default browser spacing */
+  overflow: hidden;           /* Prevent scrollbars within the iFrame if canvas slightly overflows */
+  background-color: #1a1a2e;  /* Match the P5.js sketch background for a seamless look */
+
+  /* Make body fill the entire iFrame viewport */
   width: 100%;
   height: 100%;
-  display: flex; /* Optional: helps center canvas if using object-fit */
-  justify-content: center; /* Optional: helps center canvas if using object-fit */
-  align-items: center; /* Optional: helps center canvas if using object-fit */
-  /* --------------- */
+
+  /* Optional but recommended: Use flexbox to center the canvas */
+  /* This is helpful if object-fit: contain results in letterboxing */
+  display: flex;
+  justify-content: center; /* Center horizontally */
+  align-items: center;     /* Center vertically */
 }
 
+/* Target the canvas element created by p5.js */
 canvas {
-  display: block;
-  /* --- ADD THESE --- */
-  width: 100%;   /* Scale canvas width to fit container (body) */
-  height: 100%;  /* Scale canvas height to fit container (body) */
-  object-fit: contain; /* Keeps aspect ratio, adds letterboxing if needed */
-  /* OR use: object-fit: fill; */ /* Stretches to fill exactly, may distort */
-  /* --------------- */
+  display: block; /* Removes extra space below the canvas if it were inline */
+
+  /* --- CRITICAL Scaling Rules --- */
+  /* Make the canvas element's bounding box fill its container (the body) */
+  width: 100%;
+  height: 100%;
+
+  /* Control how the fixed-resolution canvas content scales within that box */
+  /* Choose ONE of the following: */
+
+  object-fit: contain; /* Recommended: Scales while preserving aspect ratio. Adds letterboxing (empty space) if aspect ratios don't match. */
+
+  /* OR */
+  /* object-fit: fill; */ /* Stretches to fill the container exactly. Distorts if aspect ratios don't match. */
+  /* ------------------------------- */
 }

@@ -36,43 +36,56 @@ let defaultGlow = 15;           // Standard glow blur amount
 // --- P5.js Core Functions ---
 
 function setup() {
-  console.log("Setup starting..."); // Add log
-  createCanvas(windowWidth, windowHeight);
-  console.log(`Canvas created: ${windowWidth}x${windowHeight}`); // Add log
+  console.log("Setup starting...");
+  // --- CHANGE: Use a fixed canvas size for scaling in iFrame ---
+  createCanvas(1280, 720); // Example: 720p resolution
+  // createCanvas(windowWidth, windowHeight); // Previous line - commented out
+  // ---------------------------------------------------------
+  console.log(`Canvas created (fixed): ${width}x${height}`);
 
-  gravity = createVector(0, 0.6);
-  friction = 0.985;
+  gravity = createVector(0, 0.6); // Gravity force
+  friction = 0.985;             // Air resistance / damping
 
   ball = {
-    pos: createVector(0, 0), vel: createVector(0, 0), acc: createVector(0, 0),
-    radius: 18, isHeld: false,
+    pos: createVector(0, 0), // Position (set in setupLevel)
+    vel: createVector(0, 0), // Velocity
+    acc: createVector(0, 0), // Acceleration
+    radius: 18,              // Ball size
+    isHeld: false,
   };
 
   pole = {
-    x: 0, y: 0, baseHeight: 150, anchorYOffset: 5, thickness: 10,
+    x: 0,                 // X position (set in setupLevel)
+    y: 0,                 // Top Y of base (set in setupLevel)
+    baseHeight: 150,      // Visual height of pole structure
+    anchorYOffset: 5,     // Y offset from pole.y where elastic attaches
+    thickness: 10,        // Width of the pole base
   };
 
   targetBox = {
-    x: 0, y: 0, w: 60, h: 60
+    x: 0, y: 0,           // Position (set in setupLevel)
+    w: 60, h: 60          // Size
   };
 
-  setupLevel(); // Initialize the first level
-  console.log("Setup finished."); // Add log
+  // Initialize the first level using current canvas dimensions (which are now fixed)
+  setupLevel();
+  console.log("Setup finished.");
 }
 
-// Sets up positions for a new level based on current canvas size
+// Sets up positions for a new level based on the FIXED canvas size
 function setupLevel() {
-  // console.log("setupLevel called..."); // Can add more logs if needed
+  // console.log("setupLevel called...");
   gameState = 'aiming';
   ball.isHeld = false;
 
-  // Place Pole
+  // --- Place Pole --- Uses fixed 'width' and 'height' ---
   pole.x = random(width * 0.1, width * 0.3);
   pole.y = height - pole.baseHeight - 10;
 
-  // Place Target Box
+  // --- Place Target Box --- Uses fixed 'width' and 'height' ---
   let minTargetX = pole.x + 250;
   let maxTargetX = width - targetBox.w - 70;
+  // This check should be less likely needed with fixed size, but keep for safety
   if (minTargetX > maxTargetX) {
       minTargetX = width * 0.5;
       maxTargetX = width - targetBox.w - 30;
@@ -80,7 +93,7 @@ function setupLevel() {
   targetBox.x = random(minTargetX, maxTargetX);
   targetBox.y = random(height * 0.15, height - targetBox.h - 50);
 
-  // Place Ball
+  // --- Place Ball ---
   let anchorX = pole.x;
   let anchorY = pole.y + pole.anchorYOffset;
   ball.pos = createVector(anchorX, anchorY);
@@ -92,17 +105,17 @@ function setupLevel() {
 
 // Main draw loop, runs every frame
 function draw() {
-    // First check if objects needed for drawing exist (Belt-and-suspenders check)
+    // Belt-and-suspenders check - make sure objects exist
     if (!ball || !pole || !targetBox) {
-        // console.error("Draw loop called before objects initialized!"); // Should not happen if setup completes
-        return; // Do nothing if setup hasn't finished properly
+        // console.warn("Draw loop called before setup finished or objects missing");
+        return; // Exit draw if essential elements aren't ready
     }
 
   background(clrBackground);
 
-  drawAnimatedBorder();
-  drawPole();
-  drawTargetBox();
+  drawAnimatedBorder(); // Drawn relative to fixed canvas size
+  drawPole();           // Drawn relative to fixed canvas size
+  drawTargetBox();      // Drawn relative to fixed canvas size
 
   if (gameState === 'aiming') {
     aimingLogic();
@@ -110,25 +123,22 @@ function draw() {
     drawBall();
   } else if (gameState === 'launched') {
     physicsUpdate();
-    checkCollisions();
+    checkCollisions(); // Uses fixed 'height' for ground check
     drawBall();
   } else if (gameState === 'gameOver') {
     drawBall();
-    showGameOver();
+    showGameOver(); // Uses fixed 'width'/'height' for centering text
   }
 
-  displayScore();
+  displayScore(); // Drawn at fixed top-left position
 }
 
-// --- Enhanced Drawing Functions with Glow Effects ---
+// --- Enhanced Drawing Functions with Glow Effects --- (Unchanged)
 
 function applyGlow(glowColor, intensity) {
-    // Basic check if drawingContext is available
-    if(drawingContext) {
+    if(drawingContext) { // Basic check for safety
         drawingContext.shadowBlur = intensity;
         drawingContext.shadowColor = glowColor;
-    } else {
-        // console.warn("drawingContext not available for glow"); // May happen very briefly at start
     }
 }
 
@@ -145,6 +155,7 @@ function drawAnimatedBorder() {
     let cornerSize = 30 + map(pulse, 0, 1, 0, 10);
     push(); applyGlow(clrBorder, glowAmount); noFill(); stroke(clrBorder); strokeWeight(thickness);
     let cs = cornerSize;
+    // These use 'width' and 'height' which are now the fixed canvas dimensions
     line(0, cs, 0, 0); line(cs, 0, 0, 0); line(width - cs, 0, width, 0); line(width, cs, width, 0);
     line(0, height - cs, 0, height); line(cs, height, 0, height); line(width - cs, height, width, height); line(width, height - cs, width, height);
     pop();
@@ -182,15 +193,19 @@ function displayScore() {
 }
 
 function showGameOver() {
-    let overlayAlpha = 180; push(); noStroke(); fill(100, 0, 20, overlayAlpha); rect(0, 0, width, height); let mainTxtSize = 60; let subTxtSize = 28; let textY = height / 2; let lineSpacing = 50;
+    let overlayAlpha = 180; push(); noStroke(); fill(100, 0, 20, overlayAlpha); rect(0, 0, width, height); // uses fixed w/h
+    let mainTxtSize = 60; let subTxtSize = 28; let textY = height / 2; // uses fixed height
+    let lineSpacing = 50;
     let pulse = (sin(frameCount * pulseSpeed * 1.5) + 1) / 2; let glowAmount = 15 + pulse * 10; textFont('monospace'); textAlign(CENTER, CENTER);
-    applyGlow(clrBorder, glowAmount); fill(clrBorder); textSize(mainTxtSize); text('GAME OVER', width / 2, textY - lineSpacing); removeGlow();
-    applyGlow('#FF5555', 10); fill(clrText); textSize(subTxtSize); text(`You reached level ${currentLevel + 1}`, width / 2, textY + lineSpacing * 0.5);
-    textSize(subTxtSize * 0.9); text('Click to Restart', width / 2, textY + lineSpacing * 1.5); pop();
+    applyGlow(clrBorder, glowAmount); fill(clrBorder); textSize(mainTxtSize); text('GAME OVER', width / 2, textY - lineSpacing); // uses fixed w/h
+    removeGlow(); applyGlow('#FF5555', 10); fill(clrText); textSize(subTxtSize);
+    text(`You reached level ${currentLevel + 1}`, width / 2, textY + lineSpacing * 0.5); // uses fixed w/h
+    textSize(subTxtSize * 0.9); text('Click to Restart', width / 2, textY + lineSpacing * 1.5); // uses fixed w/h
+    pop();
 }
 
 
-// --- Game Mechanics & Physics ---
+// --- Game Mechanics & Physics --- (Unchanged)
 
 function aimingLogic() {
    let anchorX = pole.x; let anchorY = pole.y + pole.anchorYOffset; if (ball.isHeld) { let desiredPos = createVector(mouseX, mouseY); let displacement = p5.Vector.sub(desiredPos, createVector(anchorX, anchorY)); let distance = displacement.mag(); if (distance > maxStretch) { displacement.setMag(maxStretch); ball.pos = p5.Vector.add(createVector(anchorX, anchorY), displacement); } else { ball.pos.set(mouseX, mouseY); } } else { ball.pos.set(anchorX, anchorY); }
@@ -201,23 +216,25 @@ function checkCollisions() {
     if (gameState !== 'launched') return;
     // Check Win
     if (didBallHitBox()) { console.log("Target Hit - Level Cleared!"); currentLevel++; setupLevel(); return; }
-    // Check Ground
+    // Check Ground (uses fixed 'height')
     if (ball.pos.y + ball.radius >= height) { console.log("Hit ground - Game Over!"); gameState = 'gameOver'; ball.vel.mult(0); ball.pos.y = height - ball.radius; }
-    // Check Offscreen (L/R/T)
+    // Check Offscreen (L/R/T - uses fixed 'width')
     if (ball.pos.x + ball.radius < 0 || ball.pos.x - ball.radius > width || ball.pos.y + ball.radius < 0) { console.log("Off screen - Game Over!"); gameState = 'gameOver'; }
 }
 function didBallHitBox() { let closestX = constrain(ball.pos.x, targetBox.x, targetBox.x + targetBox.w); let closestY = constrain(ball.pos.y, targetBox.y, targetBox.y + targetBox.h); let distanceSq = pow(ball.pos.x - closestX, 2) + pow(ball.pos.y - closestY, 2); return distanceSq < pow(ball.radius, 2); }
 
 
-// --- Input Event Handlers ---
+// --- Input Event Handlers --- (Unchanged)
 function mousePressed() { let anchorX = pole.x; let anchorY = pole.y + pole.anchorYOffset; if (gameState === 'aiming') { let d = dist(mouseX, mouseY, anchorX, anchorY); if (d < ball.radius * 3) { ball.isHeld = true; aimingLogic(); } } else if (gameState === 'gameOver') { currentLevel = 0; setupLevel(); } }
 function mouseDragged() { if (gameState === 'aiming' && ball.isHeld) { aimingLogic(); } }
 function mouseReleased() { let anchorX = pole.x; let anchorY = pole.y + pole.anchorYOffset; if (gameState === 'aiming' && ball.isHeld) { ball.isHeld = false; gameState = 'launched'; let launchVector = p5.Vector.sub(createVector(anchorX, anchorY), ball.pos); ball.vel = launchVector.mult(elasticForce); ball.acc.mult(0); console.log(`Launched with velocity: (${ball.vel.x.toFixed(2)}, ${ball.vel.y.toFixed(2)})`); } }
 
 
-// --- Window Resize Handler ---
-function windowResized() {
-  resizeCanvas(windowWidth, windowHeight);
-  console.log(`Window resized to: ${windowWidth}x${windowHeight}`);
-  // Elements reposition on next level via setupLevel()
-}
+// --- Window Resize Handler --- (REMOVED)
+// function windowResized() {
+//   // This function is no longer needed as the canvas size is fixed.
+//   // The scaling is handled by CSS within the iFrame's container.
+//   // resizeCanvas(windowWidth, windowHeight);
+//   // console.log(`Window resized function called but does nothing now.`);
+// }
+// ------------------------------

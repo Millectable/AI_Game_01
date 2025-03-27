@@ -13,25 +13,25 @@ let currentLevel = 0;
 // --- Visual Style & Animation ---
 // Color Palette
 let clrBackground = '#1a1a2e';
-let clrBall = '#00ffff';
+let clrBall = '#00ffff'; // Cyan ball
 let clrBallGlow = '#00ffff';
 let clrPoleBase = '#aaaaaa';
 let clrPoleAccent = '#dddddd';
-let clrGround = '#00ced1';
-let clrGroundGlow = '#00ffff'; // Good candidate for border glow
+let clrGround = '#00ced1'; // Main ground line color (Cyan/Turquoise)
+let clrGroundGlow = '#00ffff';
 let clrElasticBase = '#4d4dff';
 let clrElasticGlow = '#8080ff';
-let clrTarget = '#ffd700';
+let clrTarget = '#ffd700'; // Yellow target
 let clrTargetGlow = '#ffd700';
 let clrText = '#f0f0f0';
 let clrTextGlow = '#a0a0f0';
-let clrSideParticle = '#ffcc00';
+let clrSideParticle = '#ffcc00'; // Yellow side particles
 let clrSideParticleGlow = '#ffd700';
-let clrBorderGlow = '#00ffff'; // Explicit color for border glow (can be same as ground)
+let clrBorderGlow = '#00ffff'; // Cyan border glow
 
-// *** NEW: Geometric Shape Colors ***
-let clrGeoShapes = '#9400D3'; // Dark Violet
-let clrGeoShapesGlow = '#DA70D6'; // Orchid (lighter purple for glow)
+// *** NEW/MODIFIED: Geometric Shape Colors (Changed as requested) ***
+let clrGeoShapes = '#FF69B4'; // Hot Pink for shapes below ground
+let clrGeoShapesGlow = '#FFC0CB'; // Pink glow for shapes below ground
 
 // Animation & Element Parameters
 let pulseSpeed = 0.05;
@@ -40,26 +40,25 @@ let elasticGlowIntensity = 15;
 let defaultGlow = 15;
 let groundLevelY;
 const NUM_GEO_SHAPES = 30;
-const MAX_GROUND_PARTICLES = 100;
-const MAX_SIDE_PARTICLES = 150;
+const MAX_GROUND_PARTICLES = 100; // These are the small dots *under* ground line
+const MAX_SIDE_PARTICLES = 150;  // These are the yellow dots at the sides
 
-// *** NEW: Border parameters ***
+// Border parameters
 let borderStrokeWeight = 2.5;
 let borderBaseGlow = 8;
 let borderPulseIntensity = 12;
-let borderPulseSpeedFactor = 0.7; // Slightly different speed
+let borderPulseSpeedFactor = 0.7;
 
 // Arrays for shapes and particles
-let geometricShapes = [];
-let groundParticles = [];
-let sideParticles = [];
-
+let geometricShapes = []; // The rectangles below the ground line
+let groundParticles = []; // The small dot particles below ground line
+let sideParticles = [];   // The yellow particles near screen edges
 
 // --- P5.js Core Functions ---
 
 function setup() {
   console.log("Setup starting...");
-  createCanvas(1280, 720); // Fixed canvas size
+  createCanvas(1280, 720);
   console.log(`Canvas created (fixed): ${width}x${height}`);
 
   gravity = createVector(0, 0.6);
@@ -104,13 +103,13 @@ function setupLevel() {
 
 // Main draw loop
 function draw() {
-    if (!ball || !pole || !targetBox) return; // Safety check
+    if (!ball || !pole || !targetBox) return;
 
   background(clrBackground);
 
   // --- Draw Background Elements ---
-  drawGround(); // Now includes animated shapes
-  updateAndDrawParticles(); // Handles both ground and side particles
+  drawGround(); // Draws ground line AND animated shapes below it
+  updateAndDrawParticles(); // Handles ground dots and side particles
 
   // --- Draw Game Elements ---
   drawPole();
@@ -120,14 +119,14 @@ function draw() {
   if (gameState === 'aiming') {
     aimingLogic();
     if (ball.isHeld) drawElastic();
-    drawBall(); // Draw ball on top during aiming
+    drawBall();
   } else if (gameState === 'launched') {
     physicsUpdate();
-    checkCollisions(); // Updated collision logic
-    drawBall(); // Draw moving ball
+    checkCollisions(); // Updated: No ground collision check
+    drawBall();
   } else if (gameState === 'gameOver') {
-    drawBall(); // Draw ball's final position
-    showGameOver(); // Draw overlay last typically, but border can be over it
+    drawBall();
+    showGameOver();
   }
 
   // --- Draw UI Elements ---
@@ -147,7 +146,7 @@ function removeGlow() { if(drawingContext) { drawingContext.shadowBlur = 0; } }
 
 function drawGround() {
     push();
-    // Draw the main ground line
+    // Draw the main ground line (still cyan/turquoise)
     strokeWeight(3);
     stroke(clrGround);
     applyGlow(clrGroundGlow, 15);
@@ -157,41 +156,38 @@ function drawGround() {
     // Draw the animated geometric shapes below the ground line
     noFill();
     strokeWeight(1.5);
-    // *** CHANGE: Use new shape color ***
+    // *** CHANGE: Use new shape color (Hot Pink) ***
     stroke(clrGeoShapes);
-    // *** CHANGE: Use new shape glow color ***
+    // *** CHANGE: Use new shape glow color (Pink) ***
     applyGlow(clrGeoShapesGlow, 10);
 
-    // *** CHANGE: Use standard for loop to get index 'i' for animation ***
     for (let i = 0; i < geometricShapes.length; i++) {
         let shape = geometricShapes[i];
 
-        // *** NEW: Animate shape properties ***
-        shape.angle += 0.005; // Slow continuous rotation
+        // *** NEW/MODIFIED: Animate shape properties more ***
+        shape.angle += 0.01; // Increased rotation speed
 
-        // Subtle horizontal drift using sine wave, desynchronized by index 'i'
-        shape.x += sin(frameCount * 0.02 + i * 0.5) * 0.15;
-        // Subtle vertical drift using cosine wave, different frequency/offset
-        shape.y += cos(frameCount * 0.015 + i * 0.7) * 0.10;
+        // Increased drift amplitude and slightly adjusted speeds
+        shape.x += sin(frameCount * 0.03 + i * 0.6) * 0.3;
+        shape.y += cos(frameCount * 0.02 + i * 0.8) * 0.2;
 
         // Keep shapes roughly within their initial vertical band below ground
-        // Adjust range slightly if needed
         shape.y = constrain(shape.y, groundLevelY + 10, height - 20);
 
-        // Optional: Wrap shapes horizontally if they drift off-screen
-        if (shape.x > width + shape.w) shape.x = -shape.w; // Adjusted threshold for rect width
-        if (shape.x < -shape.w) shape.x = width + shape.w; // Adjusted threshold
+        // Wrap shapes horizontally
+        if (shape.x > width + shape.w) shape.x = -shape.w;
+        if (shape.x < -shape.w) shape.x = width + shape.w;
 
         // Draw the shape
         push();
         translate(shape.x, shape.y);
         rotate(shape.angle);
-        rectMode(CENTER); // Draw rect from center to match rotation/translation point
+        rectMode(CENTER);
         rect(0, 0, shape.w, shape.h);
         pop();
     }
     removeGlow(); // Remove glow after drawing all shapes
-    pop(); // Restore drawing settings
+    pop();
 }
 
 
@@ -199,11 +195,9 @@ function generateGeometricPatterns() {
     geometricShapes = [];
     let patternAreaHeight = height - groundLevelY;
     for (let i = 0; i < NUM_GEO_SHAPES; i++) {
-        // Store initial position separately if complex reset logic is needed,
-        // but for continuous animation, modifying directly is fine.
         let shape = {
             x: random(width),
-            y: groundLevelY + random(patternAreaHeight * 0.1, patternAreaHeight * 0.8), // Keep slightly away from edges
+            y: groundLevelY + random(patternAreaHeight * 0.1, patternAreaHeight * 0.8),
             w: random(20, 150),
             h: random(10, 80),
             angle: random(TWO_PI)
@@ -213,7 +207,7 @@ function generateGeometricPatterns() {
 }
 
 function updateAndDrawParticles() {
-    // Side Particles
+    // Side Particles (Yellow, near edges)
     if (frameCount % 2 === 0 && sideParticles.length < MAX_SIDE_PARTICLES) spawnSideParticle();
     for (let i = sideParticles.length - 1; i >= 0; i--) {
         let p = sideParticles[i]; p.pos.add(p.vel); p.lifespan -= 1.5;
@@ -228,7 +222,8 @@ function updateAndDrawParticles() {
             removeGlow(); pop();
         }
     }
-    // Ground Particles
+    // Ground Particles (Cyan/Turquoise dots below ground line)
+    // NOTE: These are *different* from the geometric shapes.
     if (frameCount % 4 === 0 && groundParticles.length < MAX_GROUND_PARTICLES) spawnGroundParticle();
     for (let i = groundParticles.length - 1; i >= 0; i--) {
         let p = groundParticles[i]; p.pos.add(p.vel); p.lifespan -= 1;
@@ -237,7 +232,8 @@ function updateAndDrawParticles() {
             push();
             let alpha = map(p.lifespan, 0, p.initialLifespan, 0, 150);
             let glowAmount = map(p.lifespan, 0, p.initialLifespan, 0, 10);
-             fill(red(clrGroundGlow), green(clrGroundGlow), blue(clrGroundGlow), alpha);
+            // Uses the ground line's glow color
+            fill(red(clrGroundGlow), green(clrGroundGlow), blue(clrGroundGlow), alpha);
             applyGlow(clrGroundGlow, glowAmount); noStroke();
             ellipse(p.pos.x, p.pos.y, p.size, p.size);
             removeGlow(); pop();
@@ -286,8 +282,7 @@ function displayScore() {
 }
 
 function showGameOver() {
-    // Keep overlay slightly transparent so border can pulse behind/through it
-    let overlayAlpha = 160; // Reduced slightly from 180
+    let overlayAlpha = 160;
     push();
     fill(100, 0, 20, overlayAlpha); noStroke(); rect(0, 0, width, height);
     let mainTxtSize = 60; let subTxtSize = 28; let textY = height / 2; let lineSpacing = 50;
@@ -298,19 +293,17 @@ function showGameOver() {
     pop();
 }
 
-// --- Function to draw the animated glowing border ---
 function drawGlowingBorder() {
     push();
-    let pulse = (sin(frameCount * pulseSpeed * borderPulseSpeedFactor) + 1) / 2; // 0 to 1 range
+    let pulse = (sin(frameCount * pulseSpeed * borderPulseSpeedFactor) + 1) / 2;
     let currentGlow = borderBaseGlow + pulse * borderPulseIntensity;
-    let offset = borderStrokeWeight / 2; // Offset to draw fully inside bounds
+    let offset = borderStrokeWeight / 2;
 
     noFill();
-    stroke(clrBorderGlow); // Use the border glow color
+    stroke(clrBorderGlow);
     strokeWeight(borderStrokeWeight);
-    applyGlow(clrBorderGlow, currentGlow); // Apply the animated glow
+    applyGlow(clrBorderGlow, currentGlow);
 
-    // Draw rect inset slightly so the whole stroke is visible
     rect(offset, offset, width - borderStrokeWeight, height - borderStrokeWeight);
 
     removeGlow();
@@ -327,47 +320,87 @@ function aimingLogic() {
      else { ball.pos.set(mouseX, mouseY); }
    } else { ball.pos.set(anchorX, anchorY); }
 }
-function physicsUpdate() { if (gameState !== 'launched') return; ball.acc.add(gravity); ball.vel.add(ball.acc); ball.vel.mult(friction); ball.pos.add(ball.vel); ball.acc.mult(0); }
+
+function physicsUpdate() {
+  if (gameState !== 'launched') return;
+  ball.acc.add(gravity);
+  ball.vel.add(ball.acc);
+  ball.vel.mult(friction);
+  ball.pos.add(ball.vel);
+  ball.acc.mult(0);
+}
 
 function checkCollisions() {
     if (gameState !== 'launched') return;
 
     // Check for target hit
-    if (didBallHitBox()) { console.log("Target Hit!"); currentLevel++; setupLevel(); return; } // Return early if target hit
+    if (didBallHitBox()) {
+      console.log("Target Hit!");
+      currentLevel++;
+      setupLevel();
+      return; // Exit collision check early if target is hit
+    }
 
-    // *** CHANGE: Commented out ground collision check ***
+    // *** CHANGE: Ground collision check COMPLETELY COMMENTED OUT ***
+    // The ball will now pass through the ground line without any effect.
     /*
     if (ball.pos.y + ball.radius >= groundLevelY) {
         console.log("Hit ground!");
         gameState = 'gameOver';
-        ball.vel.y *= -0.5; // Bounce effect
-        ball.vel.x *= 0.8;  // Horizontal friction on bounce
-        ball.pos.y = groundLevelY - ball.radius; // Prevent sinking slightly below line
+        // Bounce effect (optional, but game over is disabled)
+        // ball.vel.y *= -0.5;
+        // ball.vel.x *= 0.8;
+        // ball.pos.y = groundLevelY - ball.radius;
     }
     */
 
-    // Check for off-screen (left, right, top) - Ball falling below ground is now ignored by collision logic
-    // NOTE: Ball can now fall indefinitely downwards without triggering game over unless it also goes off left/right.
-    if (ball.pos.x + ball.radius < 0 || ball.pos.x - ball.radius > width || ball.pos.y + ball.radius < 0) { // Removed check for ball.pos.y > height
+    // Check for off-screen (left, right, top)
+    // Ball falling off the *bottom* will NOT trigger game over with current logic.
+    if (ball.pos.x + ball.radius < 0 || ball.pos.x - ball.radius > width || ball.pos.y + ball.radius < 0) {
         console.log("Off screen!");
         gameState = 'gameOver';
     }
 }
 
-function didBallHitBox() { let closestX = constrain(ball.pos.x, targetBox.x, targetBox.x + targetBox.w); let closestY = constrain(ball.pos.y, targetBox.y, targetBox.y + targetBox.h); let dSq = pow(ball.pos.x - closestX, 2) + pow(ball.pos.y - closestY, 2); return dSq < pow(ball.radius, 2); }
+function didBallHitBox() {
+  let closestX = constrain(ball.pos.x, targetBox.x, targetBox.x + targetBox.w);
+  let closestY = constrain(ball.pos.y, targetBox.y, targetBox.y + targetBox.h);
+  let dSq = pow(ball.pos.x - closestX, 2) + pow(ball.pos.y - closestY, 2);
+  return dSq < pow(ball.radius, 2);
+}
 
 // --- Input Event Handlers ---
 function mousePressed() {
     let anchorX = pole.x; let anchorY = pole.y - pole.poleHeight + pole.anchorYOffset;
-    if (gameState === 'aiming') { let d = dist(mouseX, mouseY, anchorX, anchorY); if (d < ball.radius * 3) { ball.isHeld = true; aimingLogic(); } }
-    else if (gameState === 'gameOver') { currentLevel = 0; setupLevel(); }
+    if (gameState === 'aiming') {
+      let d = dist(mouseX, mouseY, anchorX, anchorY);
+      // Increase click radius slightly for easier grabbing
+      if (d < ball.radius * 3.5) {
+        ball.isHeld = true;
+        aimingLogic(); // Snap ball to mouse immediately
+      }
+    } else if (gameState === 'gameOver') {
+      currentLevel = 0;
+      setupLevel();
+    }
 }
-function mouseDragged() { if (gameState === 'aiming' && ball.isHeld) { aimingLogic(); } }
+
+function mouseDragged() {
+  if (gameState === 'aiming' && ball.isHeld) {
+    aimingLogic();
+  }
+}
+
 function mouseReleased() {
     let anchorX = pole.x; let anchorY = pole.y - pole.poleHeight + pole.anchorYOffset;
     if (gameState === 'aiming' && ball.isHeld) {
-        ball.isHeld = false; gameState = 'launched'; let launchVector = p5.Vector.sub(createVector(anchorX, anchorY), ball.pos);
-        ball.vel = launchVector.mult(elasticForce); ball.acc.mult(0); console.log(`Launched: V(${ball.vel.x.toFixed(2)}, ${ball.vel.y.toFixed(2)})`);
+        ball.isHeld = false;
+        gameState = 'launched';
+        let launchVector = p5.Vector.sub(createVector(anchorX, anchorY), ball.pos);
+        // Adjust force multiplier if needed
+        ball.vel = launchVector.mult(elasticForce * 0.15); // Example adjustment
+        ball.acc.mult(0); // Reset acceleration
+        console.log(`Launched: V(${ball.vel.x.toFixed(2)}, ${ball.vel.y.toFixed(2)})`);
     }
 }
 // --- End ---

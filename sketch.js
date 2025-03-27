@@ -29,6 +29,10 @@ let clrSideParticle = '#ffcc00';
 let clrSideParticleGlow = '#ffd700';
 let clrBorderGlow = '#00ffff'; // Explicit color for border glow (can be same as ground)
 
+// *** NEW: Geometric Shape Colors ***
+let clrGeoShapes = '#9400D3'; // Dark Violet
+let clrGeoShapesGlow = '#DA70D6'; // Orchid (lighter purple for glow)
+
 // Animation & Element Parameters
 let pulseSpeed = 0.05;
 let targetPulseIntensity = 5;
@@ -94,7 +98,7 @@ function setupLevel() {
   ball.pos = createVector(anchorX, anchorY);
   ball.vel = createVector(0, 0);
   ball.acc = createVector(0, 0);
-  generateGeometricPatterns();
+  generateGeometricPatterns(); // Regenerate shapes for new level
   console.log(`Level ${currentLevel + 1} setup: Pole Base(${pole.x.toFixed(0)}, ${pole.y.toFixed(0)}), Target(${targetBox.x.toFixed(0)}, ${targetBox.y.toFixed(0)})`);
 }
 
@@ -105,7 +109,7 @@ function draw() {
   background(clrBackground);
 
   // --- Draw Background Elements ---
-  drawGround();
+  drawGround(); // Now includes animated shapes
   updateAndDrawParticles(); // Handles both ground and side particles
 
   // --- Draw Game Elements ---
@@ -119,7 +123,7 @@ function draw() {
     drawBall(); // Draw ball on top during aiming
   } else if (gameState === 'launched') {
     physicsUpdate();
-    checkCollisions();
+    checkCollisions(); // Updated collision logic
     drawBall(); // Draw moving ball
   } else if (gameState === 'gameOver') {
     drawBall(); // Draw ball's final position
@@ -129,8 +133,7 @@ function draw() {
   // --- Draw UI Elements ---
   displayScore();
 
-  // --- *** NEW: Draw the animated glowing border *** ---
-  // Drawn last so it frames everything, including UI like score/game over text
+  // --- Draw the animated glowing border ---
   drawGlowingBorder();
 }
 
@@ -144,33 +147,63 @@ function removeGlow() { if(drawingContext) { drawingContext.shadowBlur = 0; } }
 
 function drawGround() {
     push();
+    // Draw the main ground line
     strokeWeight(3);
     stroke(clrGround);
     applyGlow(clrGroundGlow, 15);
     line(0, groundLevelY, width, groundLevelY);
     removeGlow();
+
+    // Draw the animated geometric shapes below the ground line
     noFill();
     strokeWeight(1.5);
-    stroke(clrGround);
-    applyGlow(clrGroundGlow, 10);
-    for (const shape of geometricShapes) {
+    // *** CHANGE: Use new shape color ***
+    stroke(clrGeoShapes);
+    // *** CHANGE: Use new shape glow color ***
+    applyGlow(clrGeoShapesGlow, 10);
+
+    // *** CHANGE: Use standard for loop to get index 'i' for animation ***
+    for (let i = 0; i < geometricShapes.length; i++) {
+        let shape = geometricShapes[i];
+
+        // *** NEW: Animate shape properties ***
+        shape.angle += 0.005; // Slow continuous rotation
+
+        // Subtle horizontal drift using sine wave, desynchronized by index 'i'
+        shape.x += sin(frameCount * 0.02 + i * 0.5) * 0.15;
+        // Subtle vertical drift using cosine wave, different frequency/offset
+        shape.y += cos(frameCount * 0.015 + i * 0.7) * 0.10;
+
+        // Keep shapes roughly within their initial vertical band below ground
+        // Adjust range slightly if needed
+        shape.y = constrain(shape.y, groundLevelY + 10, height - 20);
+
+        // Optional: Wrap shapes horizontally if they drift off-screen
+        if (shape.x > width + shape.w) shape.x = -shape.w; // Adjusted threshold for rect width
+        if (shape.x < -shape.w) shape.x = width + shape.w; // Adjusted threshold
+
+        // Draw the shape
         push();
         translate(shape.x, shape.y);
         rotate(shape.angle);
+        rectMode(CENTER); // Draw rect from center to match rotation/translation point
         rect(0, 0, shape.w, shape.h);
         pop();
     }
-    removeGlow();
-    pop();
+    removeGlow(); // Remove glow after drawing all shapes
+    pop(); // Restore drawing settings
 }
+
 
 function generateGeometricPatterns() {
     geometricShapes = [];
     let patternAreaHeight = height - groundLevelY;
     for (let i = 0; i < NUM_GEO_SHAPES; i++) {
+        // Store initial position separately if complex reset logic is needed,
+        // but for continuous animation, modifying directly is fine.
         let shape = {
             x: random(width),
-            y: groundLevelY + random(patternAreaHeight * 0.1, patternAreaHeight * 0.9),
+            y: groundLevelY + random(patternAreaHeight * 0.1, patternAreaHeight * 0.8), // Keep slightly away from edges
             w: random(20, 150),
             h: random(10, 80),
             angle: random(TWO_PI)
@@ -265,7 +298,7 @@ function showGameOver() {
     pop();
 }
 
-// --- *** NEW: Function to draw the animated glowing border *** ---
+// --- Function to draw the animated glowing border ---
 function drawGlowingBorder() {
     push();
     let pulse = (sin(frameCount * pulseSpeed * borderPulseSpeedFactor) + 1) / 2; // 0 to 1 range
@@ -295,12 +328,32 @@ function aimingLogic() {
    } else { ball.pos.set(anchorX, anchorY); }
 }
 function physicsUpdate() { if (gameState !== 'launched') return; ball.acc.add(gravity); ball.vel.add(ball.acc); ball.vel.mult(friction); ball.pos.add(ball.vel); ball.acc.mult(0); }
+
 function checkCollisions() {
     if (gameState !== 'launched') return;
-    if (didBallHitBox()) { console.log("Target Hit!"); currentLevel++; setupLevel(); return; }
-    if (ball.pos.y + ball.radius >= groundLevelY) { console.log("Hit ground!"); gameState = 'gameOver'; ball.vel.y *= -0.5; ball.vel.x *= 0.8; ball.pos.y = groundLevelY - ball.radius; }
-    if (ball.pos.x + ball.radius < 0 || ball.pos.x - ball.radius > width || ball.pos.y + ball.radius < 0) { console.log("Off screen!"); gameState = 'gameOver'; }
+
+    // Check for target hit
+    if (didBallHitBox()) { console.log("Target Hit!"); currentLevel++; setupLevel(); return; } // Return early if target hit
+
+    // *** CHANGE: Commented out ground collision check ***
+    /*
+    if (ball.pos.y + ball.radius >= groundLevelY) {
+        console.log("Hit ground!");
+        gameState = 'gameOver';
+        ball.vel.y *= -0.5; // Bounce effect
+        ball.vel.x *= 0.8;  // Horizontal friction on bounce
+        ball.pos.y = groundLevelY - ball.radius; // Prevent sinking slightly below line
+    }
+    */
+
+    // Check for off-screen (left, right, top) - Ball falling below ground is now ignored by collision logic
+    // NOTE: Ball can now fall indefinitely downwards without triggering game over unless it also goes off left/right.
+    if (ball.pos.x + ball.radius < 0 || ball.pos.x - ball.radius > width || ball.pos.y + ball.radius < 0) { // Removed check for ball.pos.y > height
+        console.log("Off screen!");
+        gameState = 'gameOver';
+    }
 }
+
 function didBallHitBox() { let closestX = constrain(ball.pos.x, targetBox.x, targetBox.x + targetBox.w); let closestY = constrain(ball.pos.y, targetBox.y, targetBox.y + targetBox.h); let dSq = pow(ball.pos.x - closestX, 2) + pow(ball.pos.y - closestY, 2); return dSq < pow(ball.radius, 2); }
 
 // --- Input Event Handlers ---

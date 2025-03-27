@@ -21,9 +21,9 @@ const BASE_MAX_STRETCH = 140;
 const BASE_BORDER_WEIGHT = 2;
 const BASE_TEXT_SIZE = 22;
 const MIN_TEXT_SIZE = 12;
-// *** Adjusted Base Multiplier for new logic ***
-// const BASE_LAUNCH_MULTIPLIER = 0.65; // Previous value
-const MIN_SCALE_FACTOR_FOR_LAUNCH = 0.4; // Min scale considered for power boost
+// *** Base multiplier - adjust based on SF^2 logic ***
+// const BASE_LAUNCH_MULTIPLIER = 0.4; // Previous value for *SF logic
+const MIN_SCALE_FACTOR_FOR_LAUNCH = 0.4;
 
 // --- Style & Colors ---
 const clrBackground = '#F5EFE4'; const clrText = '#8DA1AD'; const clrTextGlow = '#0B3D42';
@@ -51,7 +51,6 @@ let scaledMaxStretch, scaledBorderStrokeWeight; // Declare globals
 // ========================================================
 // SETUP & RESIZING
 // ========================================================
-
 function setup() {
   console.log("Setup starting...");
   let canvasSize = calculateCanvasSize();
@@ -102,7 +101,6 @@ function setLayoutAndScaling() {
 // ========================================================
 // LEVEL SETUP & ELEMENT POSITIONING
 // ========================================================
-
 function setupLevel() {
   console.log("setupLevel called..."); gameState = 'aiming'; ball.isHeld = false;
   pole.baseX = width * 0.15; pole.x = pole.baseX; pole.y = height;
@@ -121,7 +119,6 @@ function calculateAnchorPos(animationFrameCount = frameCount) {
 // ========================================================
 // DRAW LOOP & UPDATE FUNCTIONS
 // ========================================================
-
 function draw() {
   if (!ball || !pole || !targetBox || !width || !height || width <= 0 || height <= 0) { if (frameCount < 60) console.log("Waiting..."); return; }
   background(clrBackground); if (gameState !== 'gameOver') updateTargetPosition();
@@ -170,7 +167,7 @@ function didBallHitBox() { let closestX = constrain(ball.pos.x, targetBox.x, tar
 function mousePressed() { if (gameState === 'aiming') { let currentAnchor = calculateAnchorPos(); if (!currentAnchor) return false; let d = dist(mouseX, mouseY, currentAnchor.x, currentAnchor.y); if (d < ball.radius * 3.5) { ball.isHeld = true; aimingLogic(); } } else if (gameState === 'gameOver') { currentLevel = 0; setupLevel(); } return false; } // Uses scaled ball.radius
 function mouseDragged() { if (gameState === 'aiming' && ball.isHeld) { aimingLogic(); } return false; }
 
-// *** UPDATED mouseReleased - Multiply by Scale Factor ***
+// *** UPDATED mouseReleased - Multiply by Scale Factor SQUARED ***
 function mouseReleased() {
     if (gameState === 'aiming' && ball.isHeld) {
         ball.isHeld = false; gameState = 'launched';
@@ -180,17 +177,17 @@ function mouseReleased() {
         let launchVector = p5.Vector.sub(currentAnchor, ball.pos);
 
         // --- Adjust Base Multiplier ---
-        const BASE_LAUNCH_MULTIPLIER = 0.4; // Lower base since we multiply by SF
+        const BASE_LAUNCH_MULTIPLIER = 0.3; // Lower base needed due to squaring SF
 
         // Calculate effective multiplier based on scale factor
-        // Multiply by scaleFactor to increase power on larger screens
+        // Multiply by scaleFactor SQUARED to increase power more rapidly on larger screens
         let effectiveScaleFactor = max(MIN_SCALE_FACTOR_FOR_LAUNCH, scaleFactor);
-        // *** Multiply by effectiveScaleFactor ***
-        let effectiveMultiplier = BASE_LAUNCH_MULTIPLIER * effectiveScaleFactor;
+        // *** Multiply by pow(effectiveScaleFactor, 2) ***
+        let effectiveMultiplier = BASE_LAUNCH_MULTIPLIER * pow(effectiveScaleFactor, 2); // SF * SF
 
         ball.vel = launchVector.mult(elasticForce * effectiveMultiplier);
         ball.acc.mult(0);
-        console.log(`Launched: Scale=${scaleFactor.toFixed(2)}, BaseMult=${BASE_LAUNCH_MULTIPLIER}, EffMult=${effectiveMultiplier.toFixed(2)} (*SF adjust), V=(${ball.vel.x.toFixed(2)}, ${ball.vel.y.toFixed(2)})`);
+        console.log(`Launched: Scale=${scaleFactor.toFixed(2)}, BaseMult=${BASE_LAUNCH_MULTIPLIER}, EffMult=${effectiveMultiplier.toFixed(2)} (*SF^2 adjust), V=(${ball.vel.x.toFixed(2)}, ${ball.vel.y.toFixed(2)})`);
     }
     return false;
 }

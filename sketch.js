@@ -21,9 +21,9 @@ const BASE_MAX_STRETCH = 140;
 const BASE_BORDER_WEIGHT = 2;
 const BASE_TEXT_SIZE = 22;
 const MIN_TEXT_SIZE = 12;
-// *** Base multiplier - adjust based on pow(SF, 1.5) logic ***
-// const BASE_LAUNCH_MULTIPLIER = 0.9; // Previous value for pow(SF, 2)
-const MIN_SCALE_FACTOR_FOR_LAUNCH = 0.4;
+// *** Base multiplier to tune overall power ***
+// const BASE_LAUNCH_MULTIPLIER = 0.9; // Previous value for SF^2
+const MIN_SCALE_FACTOR_FOR_LAUNCH = 0.4; // Min scale considered for power boost
 
 // --- Style & Colors ---
 const clrBackground = '#F5EFE4'; const clrText = '#8DA1AD'; const clrTextGlow = '#0B3D42';
@@ -167,27 +167,28 @@ function didBallHitBox() { let closestX = constrain(ball.pos.x, targetBox.x, tar
 function mousePressed() { if (gameState === 'aiming') { let currentAnchor = calculateAnchorPos(); if (!currentAnchor) return false; let d = dist(mouseX, mouseY, currentAnchor.x, currentAnchor.y); if (d < ball.radius * 3.5) { ball.isHeld = true; aimingLogic(); } } else if (gameState === 'gameOver') { currentLevel = 0; setupLevel(); } return false; } // Uses scaled ball.radius
 function mouseDragged() { if (gameState === 'aiming' && ball.isHeld) { aimingLogic(); } return false; }
 
-// *** UPDATED mouseReleased - Multiply by pow(Scale Factor, 1.5) ***
+// *** UPDATED mouseReleased - Use 1/ScaleFactor for Consistent Velocity ***
 function mouseReleased() {
     if (gameState === 'aiming' && ball.isHeld) {
         ball.isHeld = false; gameState = 'launched';
         let currentAnchor = calculateAnchorPos();
         if (!currentAnchor) return false; // Check anchor validity
 
-        let launchVector = p5.Vector.sub(currentAnchor, ball.pos);
+        let launchVector = p5.Vector.sub(currentAnchor, ball.pos); // Vector from ball to anchor
 
-        // --- Adjust Base Multiplier for intermediate scaling ---
-        const BASE_LAUNCH_MULTIPLIER = 0.55; // Start value for pow(SF, 1.5) logic
+        // --- Base Multiplier (Tune this if overall power is wrong) ---
+        const BASE_LAUNCH_MULTIPLIER = 0.7; // Moderate starting point
 
         // Calculate effective multiplier based on scale factor
-        // Multiply by scaleFactor^1.5 for intermediate power increase on larger screens
+        // Dividing by scaleFactor *should* compensate for launchVector.mag() scaling
+        // making the final velocity magnitude consistent regardless of screen size.
         let effectiveScaleFactor = max(MIN_SCALE_FACTOR_FOR_LAUNCH, scaleFactor);
-        // *** Multiply by pow(effectiveScaleFactor, 1.5) ***
-        let effectiveMultiplier = BASE_LAUNCH_MULTIPLIER * pow(effectiveScaleFactor, 1.5);
+        // *** Revert to: Divide by effectiveScaleFactor ***
+        let effectiveMultiplier = BASE_LAUNCH_MULTIPLIER / effectiveScaleFactor;
 
         ball.vel = launchVector.mult(elasticForce * effectiveMultiplier);
         ball.acc.mult(0);
-        console.log(`Launched: Scale=${scaleFactor.toFixed(2)}, BaseMult=${BASE_LAUNCH_MULTIPLIER}, EffMult=${effectiveMultiplier.toFixed(2)} (*SF^1.5 adjust), V=(${ball.vel.x.toFixed(2)}, ${ball.vel.y.toFixed(2)})`);
+        console.log(`Launched: Scale=${scaleFactor.toFixed(2)}, BaseMult=${BASE_LAUNCH_MULTIPLIER}, EffMult=${effectiveMultiplier.toFixed(2)} (1/SF adjust), V=(${ball.vel.x.toFixed(2)}, ${ball.vel.y.toFixed(2)})`);
     }
     return false;
 }

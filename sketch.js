@@ -1,16 +1,14 @@
-// Game Globals
+// --- Globals ---
 let ball, pole, targetBox;
 let gravity, friction;
 let elasticForce = 0.4;
-// let maxStretch = 160; // Base value defined below
-
 let gameState = 'aiming';
 let currentLevel = 0;
 
 // --- Reference & Scaling ---
-const REF_WIDTH = 960;  // Design reference width
-const REF_HEIGHT = 640; // Design reference height
-const TARGET_ASPECT_RATIO = REF_WIDTH / REF_HEIGHT; // Recalculate (3:2 ratio)
+const REF_WIDTH = 960;
+const REF_HEIGHT = 640;
+const TARGET_ASPECT_RATIO = REF_WIDTH / REF_HEIGHT;
 let scaleFactor = 1;
 
 // --- Base Sizes (relative to NEW REF_WIDTH) ---
@@ -23,7 +21,8 @@ const BASE_MAX_STRETCH = 140;
 const BASE_BORDER_WEIGHT = 2;
 const BASE_TEXT_SIZE = 22;
 const MIN_TEXT_SIZE = 12;
-const BASE_LAUNCH_MULTIPLIER = 0.7; // Base power
+// *** Adjusted Base Multiplier slightly ***
+const BASE_LAUNCH_MULTIPLIER = 0.8; // Base power (Increased slightly)
 const MIN_SCALE_FACTOR_FOR_LAUNCH = 0.4; // Min scale considered for power boost
 
 // --- Style & Colors ---
@@ -47,8 +46,7 @@ let groundLevelY;
 let geometricShapes = []; let groundParticles = []; let sideParticles = [];
 let targetMoveBounds = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
 let gameFont = 'Georgia';
-let scaledMaxStretch, scaledBorderStrokeWeight; // Declare globals that are set in setLayoutAndScaling
-
+let scaledMaxStretch, scaledBorderStrokeWeight; // Declare globals
 
 // ========================================================
 // SETUP & RESIZING
@@ -60,13 +58,10 @@ function setup() {
   let canvas = createCanvas(canvasSize.w, canvasSize.h);
   canvas.elt.addEventListener('contextmenu', (e) => e.preventDefault());
   console.log(`Canvas created (dynamic): ${width}x${height}`);
-
   gravity = createVector(0, 0.6); friction = 0.988;
-
   ball = { pos: createVector(0, 0), vel: createVector(0, 0), acc: createVector(0, 0), radius: BASE_BALL_RADIUS, isHeld: false };
   pole = { x: 0, y: 0, poleHeight: 0, baseX: 0, anchorYOffset: BASE_POLE_ANCHOR_OFFSET, thickness: BASE_POLE_THICKNESS };
   targetBox = { x: 0, y: 0, w: BASE_TARGET_W, h: BASE_TARGET_H, initialX: 0, initialY: 0 };
-
   setLayoutAndScaling();
   setupLevel();
   console.log("Setup finished.");
@@ -75,10 +70,11 @@ function setup() {
 function windowResized() {
   console.log("Window resized!");
   let canvasSize = calculateCanvasSize();
-  resizeCanvas(canvasSize.w, canvasSize.h);
-  console.log(`Canvas resized to: ${width}x${height}`);
-  setLayoutAndScaling();
-  setupLevel();
+  if (canvasSize.w !== width || canvasSize.h !== height) {
+      resizeCanvas(canvasSize.w, canvasSize.h);
+      console.log(`Canvas resized to: ${width}x${height}`);
+      setLayoutAndScaling(); setupLevel();
+  } else { console.log("Skipping resize - dimensions unchanged."); }
 }
 
 function calculateCanvasSize() {
@@ -91,20 +87,13 @@ function calculateCanvasSize() {
 
 function setLayoutAndScaling() {
   if (width <= 0 || height <= 0) { console.error("Invalid dimensions:", width, height); return; }
-  scaleFactor = width / REF_WIDTH;
-  groundLevelY = height * 0.85;
-  pole.poleHeight = height * 0.2;
-  ball.radius = max(5, BASE_BALL_RADIUS * scaleFactor);
-  pole.thickness = max(2, BASE_POLE_THICKNESS * scaleFactor);
-  pole.anchorYOffset = BASE_POLE_ANCHOR_OFFSET * scaleFactor;
-  targetBox.w = BASE_TARGET_W * scaleFactor;
-  targetBox.h = BASE_TARGET_H * scaleFactor;
-  scaledMaxStretch = BASE_MAX_STRETCH * scaleFactor;
+  scaleFactor = width / REF_WIDTH; groundLevelY = height * 0.85; pole.poleHeight = height * 0.2;
+  ball.radius = max(5, BASE_BALL_RADIUS * scaleFactor); pole.thickness = max(2, BASE_POLE_THICKNESS * scaleFactor);
+  pole.anchorYOffset = BASE_POLE_ANCHOR_OFFSET * scaleFactor; targetBox.w = BASE_TARGET_W * scaleFactor;
+  targetBox.h = BASE_TARGET_H * scaleFactor; scaledMaxStretch = BASE_MAX_STRETCH * scaleFactor;
   scaledBorderStrokeWeight = max(1.0, BASE_BORDER_WEIGHT * scaleFactor);
-  targetMoveBounds.minX = width * 0.35;
-  targetMoveBounds.maxX = width * 0.9 - targetBox.w;
-  targetMoveBounds.minY = height * 0.1;
-  targetMoveBounds.maxY = min(height * 0.6, height - pole.poleHeight - targetBox.h - 20);
+  targetMoveBounds.minX = width * 0.35; targetMoveBounds.maxX = width * 0.9 - targetBox.w;
+  targetMoveBounds.minY = height * 0.1; targetMoveBounds.maxY = min(height * 0.6, height - pole.poleHeight - targetBox.h - 20);
   if (targetMoveBounds.maxY <= targetMoveBounds.minY) { targetMoveBounds.maxY = targetMoveBounds.minY + 1; }
   if (targetMoveBounds.maxX <= targetMoveBounds.minX) { targetMoveBounds.maxX = targetMoveBounds.minX + 1; }
   console.log(`Layout/Scale Set: SF=${scaleFactor.toFixed(2)}, BallR=${ball.radius.toFixed(1)}, TargetW=${targetBox.w.toFixed(1)}`);
@@ -151,16 +140,16 @@ function updateTargetPosition() {
 // ========================================================
 function applyGlow(glowColor, intensity) { if(drawingContext) { drawingContext.shadowBlur = intensity; drawingContext.shadowColor = glowColor; } }
 function removeGlow() { if(drawingContext) { drawingContext.shadowBlur = 0; } }
-function drawGround() { push(); noFill(); strokeWeight(1.5); stroke(clrGeoShapes); applyGlow(clrGeoShapesGlow, 8); for (let i = 0; i < geometricShapes.length; i++) { let shape = geometricShapes[i]; shape.angle += 0.008; shape.x += sin(frameCount * 0.025 + i * 0.6) * 0.2; shape.y += cos(frameCount * 0.018 + i * 0.8) * 0.15; shape.y = constrain(shape.y, groundLevelY + 10, height - 20); if (shape.x > width + shape.w) shape.x = -shape.w; if (shape.x < -shape.w) shape.x = width + shape.w; push(); translate(shape.x, shape.y); rotate(shape.angle); rectMode(CENTER); rect(0, 0, shape.w, shape.h); pop(); } removeGlow(); pop(); }
-function generateGeometricPatterns() { geometricShapes = []; let patternAreaHeight = height - groundLevelY; if (patternAreaHeight <= 0) return; for (let i = 0; i < NUM_GEO_SHAPES; i++) { let shape = { x: random(width), y: groundLevelY + random(patternAreaHeight * 0.1, patternAreaHeight * 0.8), w: random(20, 150), h: random(10, 80), angle: random(TWO_PI) }; geometricShapes.push(shape); } }
+function drawGround() { push(); noFill(); strokeWeight(1.5); stroke(clrGeoShapes); applyGlow(clrGeoShapesGlow, 8); for (let i = 0; i < geometricShapes.length; i++) { let shape = geometricShapes[i]; shape.angle += 0.008; shape.x += sin(frameCount * 0.025 + i * 0.6) * 0.2; shape.y += cos(frameCount * 0.018 + i * 0.8) * 0.15; shape.y = constrain(shape.y, groundLevelY + 10, height - 20); if (shape.x > width + shape.w) shape.x = -shape.w; if (shape.x < -shape.w) shape.x = width + shape.w; push(); translate(shape.x, shape.y); rotate(shape.angle); rectMode(CENTER); rect(0, 0, shape.w, shape.h); pop(); } removeGlow(); pop(); } // Shapes not scaled
+function generateGeometricPatterns() { geometricShapes = []; let patternAreaHeight = height - groundLevelY; if (patternAreaHeight <= 0) return; for (let i = 0; i < NUM_GEO_SHAPES; i++) { let shape = { x: random(width), y: groundLevelY + random(patternAreaHeight * 0.1, patternAreaHeight * 0.8), w: random(20, 150), h: random(10, 80), angle: random(TWO_PI) }; geometricShapes.push(shape); } } // Shapes not scaled
 function updateAndDrawParticles() {
     if (frameCount % 3 === 0 && sideParticles.length < MAX_SIDE_PARTICLES) spawnSideParticle(); for (let i = sideParticles.length - 1; i >= 0; i--) { let p = sideParticles[i]; p.pos.add(p.vel); p.lifespan -= 1.5; if (p.lifespan <= 0) { sideParticles.splice(i, 1); } else { push(); let alpha = map(p.lifespan, 0, p.initialLifespan, 0, 200); let glowAmount = map(p.lifespan, 0, p.initialLifespan, 0, 6); let baseColor = color(clrSideParticle); fill(red(baseColor), green(baseColor), blue(baseColor), alpha); applyGlow(clrSideParticleGlow, glowAmount); noStroke(); ellipse(p.pos.x, p.pos.y, p.size * scaleFactor, p.size * scaleFactor); removeGlow(); pop(); } } // Scaled particle size
     if (frameCount % 5 === 0 && groundParticles.length < MAX_GROUND_PARTICLES) spawnGroundParticle(); for (let i = groundParticles.length - 1; i >= 0; i--) { let p = groundParticles[i]; p.pos.add(p.vel); p.lifespan -= 1; if (p.lifespan <= 0) { groundParticles.splice(i, 1); } else { push(); let alpha = map(p.lifespan, 0, p.initialLifespan, 0, 120); let glowAmount = map(p.lifespan, 0, p.initialLifespan, 0, 7); let baseColor = color(clrGroundParticleGlow); fill(red(baseColor), green(baseColor), blue(baseColor), alpha); applyGlow(clrGroundParticleGlow, glowAmount); noStroke(); ellipse(p.pos.x, p.pos.y, p.size * scaleFactor, p.size * scaleFactor); removeGlow(); pop(); } } // Scaled particle size
 }
-function spawnSideParticle() { let edgeMargin = width * 0.08; let xPos = (random() < 0.5) ? random(edgeMargin) : random(width - edgeMargin, width); let yPos = random(height * 0.2, height * 1.1); let baseSize = random(1.5, 4); let particle = { pos: createVector(xPos, yPos), vel: createVector(random(-0.2, 0.2), random(-0.6, -1.2)), initialLifespan: random(120, 280), lifespan: 0, size: baseSize }; particle.lifespan = particle.initialLifespan; sideParticles.push(particle); }
-function spawnGroundParticle() { if (typeof groundLevelY !== 'number' || groundLevelY >= height) return; let xPos = random(width); let yPos = random(groundLevelY + 5, height - 5); let baseSize = random(2, 5); let particle = { pos: createVector(xPos, yPos), vel: createVector(random(-0.3, 0.3), random(-0.15, 0.15)), initialLifespan: random(100, 200), lifespan: 0, size: baseSize }; particle.lifespan = particle.initialLifespan; groundParticles.push(particle); }
+function spawnSideParticle() { let edgeMargin = width * 0.08; let xPos = (random() < 0.5) ? random(edgeMargin) : random(width - edgeMargin, width); let yPos = random(height * 0.2, height * 1.1); let baseSize = random(1.5, 4); let particle = { pos: createVector(xPos, yPos), vel: createVector(random(-0.2, 0.2), random(-0.6, -1.2)), initialLifespan: random(120, 280), lifespan: 0, size: baseSize }; particle.lifespan = particle.initialLifespan; sideParticles.push(particle); } // Stores base size
+function spawnGroundParticle() { if (typeof groundLevelY !== 'number' || groundLevelY >= height) return; let xPos = random(width); let yPos = random(groundLevelY + 5, height - 5); let baseSize = random(2, 5); let particle = { pos: createVector(xPos, yPos), vel: createVector(random(-0.3, 0.3), random(-0.15, 0.15)), initialLifespan: random(100, 200), lifespan: 0, size: baseSize }; particle.lifespan = particle.initialLifespan; groundParticles.push(particle); } // Stores base size
 function drawPole() { push(); let currentPoleX = pole.baseX + sin(frameCount * poleSwaySpeed) * poleSwayAmount; let currentAnchor = calculateAnchorPos(); if (!currentAnchor) return; let poleTopVisibleY = height - pole.poleHeight; strokeWeight(pole.thickness); stroke(clrPoleBase); line(currentPoleX, height, currentPoleX, poleTopVisibleY); fill(clrPoleAccent); applyGlow(clrSubtleGlow, 5); noStroke(); ellipse(currentAnchor.x, currentAnchor.y, pole.thickness * 1.8, pole.thickness * 1.8); removeGlow(); pop(); } // Uses scaled pole.thickness
-function drawTargetBox() { let pulse = (sin(frameCount * pulseSpeed) + 1) / 2; let scaleFactorPulse = map(pulse, 0, 1, 1.0, 1.03); let glowAmount = defaultGlow + map(pulse, 0, 1, 0, targetPulseIntensity); let centerX = targetBox.x + targetBox.w / 2; let centerY = targetBox.y + targetBox.h / 2; let finalW = targetBox.w * scaleFactorPulse; let finalH = targetBox.h * scaleFactorPulse; push(); applyGlow(clrTargetGlow, glowAmount); fill(clrTarget); noStroke(); rectMode(CENTER); rect(centerX, centerY, finalW, finalH, 5 * scaleFactor); removeGlow(); pop(); } // Uses scaled targetBox.w/h
+function drawTargetBox() { let pulse = (sin(frameCount * pulseSpeed) + 1) / 2; let scaleFactorPulse = map(pulse, 0, 1, 1.0, 1.03); let glowAmount = defaultGlow + map(pulse, 0, 1, 0, targetPulseIntensity); let centerX = targetBox.x + targetBox.w / 2; let centerY = targetBox.y + targetBox.h / 2; let finalW = targetBox.w * scaleFactorPulse; let finalH = targetBox.h * scaleFactorPulse; push(); applyGlow(clrTargetGlow, glowAmount); fill(clrTarget); noStroke(); rectMode(CENTER); rect(centerX, centerY, finalW, finalH, 5 * scaleFactor); removeGlow(); pop(); } // Uses scaled targetBox.w/h and scales corner radius
 function drawBall() { push(); applyGlow(clrBallGlow, defaultGlow); fill(clrBall); noStroke(); ellipse(ball.pos.x, ball.pos.y, ball.radius * 2, ball.radius * 2); pop(); } // Uses scaled ball.radius
 function drawElastic() { let currentAnchor = calculateAnchorPos(); if (!currentAnchor) return; let stretchVector = p5.Vector.sub(ball.pos, currentAnchor); let currentStretch = stretchVector.mag(); if (currentStretch < 2 && !ball.isHeld) return; let stretchRatio = constrain(currentStretch / scaledMaxStretch, 0, 1); let glowAmount = 4 + stretchRatio * elasticGlowIntensity; let minThickness = max(1.0, 2 * scaleFactor); let maxThickness = max(minThickness + 1, 5 * scaleFactor); let thickness = map(stretchRatio, 0, 1, minThickness, maxThickness); push(); applyGlow(clrElasticGlow, glowAmount); stroke(clrElasticBase); strokeWeight(thickness); line(currentAnchor.x, currentAnchor.y, ball.pos.x, ball.pos.y); pop(); } // Uses scaledMaxStretch and scales thickness
 function displayScore() { let scoreText = `Level: ${currentLevel + 1}`; let txtX = width * 0.03; let txtY = height * 0.07; let glowAmount = 3 + (sin(frameCount * pulseSpeed * 0.8) + 1) * 2; push(); let scaledSize = max(MIN_TEXT_SIZE, BASE_TEXT_SIZE * scaleFactor); textSize(scaledSize); textFont(gameFont); textAlign(LEFT, TOP); applyGlow(clrTextGlow, glowAmount); fill(clrTextGlow); text(scoreText, txtX + 1, txtY + 1); removeGlow(); fill(clrText); text(scoreText, txtX, txtY); pop(); } // Scales text size
@@ -181,7 +170,7 @@ function didBallHitBox() { let closestX = constrain(ball.pos.x, targetBox.x, tar
 function mousePressed() { if (gameState === 'aiming') { let currentAnchor = calculateAnchorPos(); if (!currentAnchor) return false; let d = dist(mouseX, mouseY, currentAnchor.x, currentAnchor.y); if (d < ball.radius * 3.5) { ball.isHeld = true; aimingLogic(); } } else if (gameState === 'gameOver') { currentLevel = 0; setupLevel(); } return false; } // Uses scaled ball.radius
 function mouseDragged() { if (gameState === 'aiming' && ball.isHeld) { aimingLogic(); } return false; }
 
-// *** UPDATED mouseReleased with SQRT scaling ***
+// *** UPDATED mouseReleased with Original Inverse Scaling ***
 function mouseReleased() {
     if (gameState === 'aiming' && ball.isHeld) {
         ball.isHeld = false; gameState = 'launched';
@@ -190,14 +179,14 @@ function mouseReleased() {
 
         let launchVector = p5.Vector.sub(currentAnchor, ball.pos);
 
-        // Calculate effective multiplier based on scale factor, using SQRT for gentler scaling
+        // Calculate effective multiplier based on scale factor
+        // Reverted to dividing by scaleFactor directly for constant velocity mag
         let effectiveScaleFactor = max(MIN_SCALE_FACTOR_FOR_LAUNCH, scaleFactor);
-        // *** Use square root for gentler power scaling ***
-        let effectiveMultiplier = BASE_LAUNCH_MULTIPLIER / sqrt(effectiveScaleFactor);
+        let effectiveMultiplier = BASE_LAUNCH_MULTIPLIER / effectiveScaleFactor;
 
         ball.vel = launchVector.mult(elasticForce * effectiveMultiplier);
         ball.acc.mult(0);
-        console.log(`Launched: Scale=${scaleFactor.toFixed(2)}, EffMult=${effectiveMultiplier.toFixed(2)} (sqrt adjust), V=(${ball.vel.x.toFixed(2)}, ${ball.vel.y.toFixed(2)})`);
+        console.log(`Launched: Scale=${scaleFactor.toFixed(2)}, EffMult=${effectiveMultiplier.toFixed(2)} (1/SF adjust), V=(${ball.vel.x.toFixed(2)}, ${ball.vel.y.toFixed(2)})`);
     }
     return false;
 }

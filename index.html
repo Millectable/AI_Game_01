@@ -2,10 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Elastic Glow Ball</title>
+    <!-- Add meta tag for responsive design on mobile -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Elastic Ball Game</title>
 
-    <!-- Link to the CSS file (relative path) -->
+    <!-- Link to the CSS file -->
     <link rel="stylesheet" type="text/css" href="style.css" />
 
     <!-- VITAL: Include your LOCAL p5.js library file FIRST -->
@@ -14,9 +15,14 @@
     <!-- You might have p5.sound.min.js too if you add sound -->
     <!-- <script src="p5.sound.min.js"></script> -->
 
+    <!-- Disable scrolling and pull-to-refresh on mobile for touch events -->
+    <style>
+      body { touch-action: none; }
+    </style>
+
   </head>
   <body>
-    <!-- This is where your p5.js sketch will run -->
+    <!-- p5.js sketch will run here, centered by CSS -->
 
     <!-- VITAL: Include your sketch.js file SECOND -->
     <script src="sketch.js"></script>

@@ -21,9 +21,9 @@ const BASE_MAX_STRETCH = 140;
 const BASE_BORDER_WEIGHT = 2;
 const BASE_TEXT_SIZE = 22;
 const MIN_TEXT_SIZE = 12;
-// *** Adjusted Base Multiplier ***
-const BASE_LAUNCH_MULTIPLIER = 0.65; // Slightly reduced base power
-const MIN_SCALE_FACTOR_FOR_LAUNCH = 0.4;
+// *** Adjusted Base Multiplier for new logic ***
+// const BASE_LAUNCH_MULTIPLIER = 0.65; // Previous value
+const MIN_SCALE_FACTOR_FOR_LAUNCH = 0.4; // Min scale considered for power boost
 
 // --- Style & Colors ---
 const clrBackground = '#F5EFE4'; const clrText = '#8DA1AD'; const clrTextGlow = '#0B3D42';
@@ -170,7 +170,7 @@ function didBallHitBox() { let closestX = constrain(ball.pos.x, targetBox.x, tar
 function mousePressed() { if (gameState === 'aiming') { let currentAnchor = calculateAnchorPos(); if (!currentAnchor) return false; let d = dist(mouseX, mouseY, currentAnchor.x, currentAnchor.y); if (d < ball.radius * 3.5) { ball.isHeld = true; aimingLogic(); } } else if (gameState === 'gameOver') { currentLevel = 0; setupLevel(); } return false; } // Uses scaled ball.radius
 function mouseDragged() { if (gameState === 'aiming' && ball.isHeld) { aimingLogic(); } return false; }
 
-// *** UPDATED mouseReleased with Original Inverse Scaling & Adjusted Base ***
+// *** UPDATED mouseReleased - Multiply by Scale Factor ***
 function mouseReleased() {
     if (gameState === 'aiming' && ball.isHeld) {
         ball.isHeld = false; gameState = 'launched';
@@ -179,14 +179,18 @@ function mouseReleased() {
 
         let launchVector = p5.Vector.sub(currentAnchor, ball.pos);
 
+        // --- Adjust Base Multiplier ---
+        const BASE_LAUNCH_MULTIPLIER = 0.4; // Lower base since we multiply by SF
+
         // Calculate effective multiplier based on scale factor
-        // Using 1/scaleFactor should make pixel velocity magnitude consistent
+        // Multiply by scaleFactor to increase power on larger screens
         let effectiveScaleFactor = max(MIN_SCALE_FACTOR_FOR_LAUNCH, scaleFactor);
-        let effectiveMultiplier = BASE_LAUNCH_MULTIPLIER / effectiveScaleFactor; // Reverted to 1/SF
+        // *** Multiply by effectiveScaleFactor ***
+        let effectiveMultiplier = BASE_LAUNCH_MULTIPLIER * effectiveScaleFactor;
 
         ball.vel = launchVector.mult(elasticForce * effectiveMultiplier);
         ball.acc.mult(0);
-        console.log(`Launched: Scale=${scaleFactor.toFixed(2)}, BaseMult=${BASE_LAUNCH_MULTIPLIER}, EffMult=${effectiveMultiplier.toFixed(2)} (1/SF adjust), V=(${ball.vel.x.toFixed(2)}, ${ball.vel.y.toFixed(2)})`);
+        console.log(`Launched: Scale=${scaleFactor.toFixed(2)}, BaseMult=${BASE_LAUNCH_MULTIPLIER}, EffMult=${effectiveMultiplier.toFixed(2)} (*SF adjust), V=(${ball.vel.x.toFixed(2)}, ${ball.vel.y.toFixed(2)})`);
     }
     return false;
 }

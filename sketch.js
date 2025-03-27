@@ -316,6 +316,7 @@ function generateGeometricPatterns() {
     }
 }
 
+// *** CORRECTED function ***
 // Updates and draws all particle effects (side dust, ground dust)
 function updateAndDrawParticles() {
     // --- Side Particles (Greyish-Blue near edges) ---
@@ -332,7 +333,7 @@ function updateAndDrawParticles() {
         if (p.lifespan <= 0) {
             sideParticles.splice(i, 1); // Remove dead particle
         } else {
-            // Draw the particle with fading alpha and glow
+            // Draw the particle WITHIN the else block
             push();
             let alpha = map(p.lifespan, 0, p.initialLifespan, 0, 200); // Fade out alpha
             let glowAmount = map(p.lifespan, 0, p.initialLifespan, 0, 6); // Fade out glow
@@ -355,12 +356,12 @@ function updateAndDrawParticles() {
     for (let i = groundParticles.length - 1; i >= 0; i--) {
         let p = groundParticles[i];
         p.pos.add(p.vel); // Move particle
-        p.lifespan -= 1; // Decrease lifespan (slower fade than side particles)
+        p.lifespan -= 1; // Decrease lifespan
 
         if (p.lifespan <= 0) {
             groundParticles.splice(i, 1); // Remove dead particle
         } else {
-            // Draw the particle with fading alpha and glow
+             // Draw the particle WITHIN the else block
             push();
             let alpha = map(p.lifespan, 0, p.initialLifespan, 0, 120); // Fade out alpha
             let glowAmount = map(p.lifespan, 0, p.initialLifespan, 0, 7); // Fade out glow
@@ -374,6 +375,7 @@ function updateAndDrawParticles() {
         }
     }
 }
+
 
 // Spawns a single side particle near the screen edges
 function spawnSideParticle() {
@@ -586,22 +588,25 @@ function aimingLogic() {
    let anchorPos = createVector(anchorX, anchorY);
 
    if (ball.isHeld) {
-     let mousePos = createVector(mouseX, mouseY);
-     let displacement = p5.Vector.sub(mousePos, anchorPos); // Vector from anchor to mouse
-     let distance = displacement.mag(); // How far mouse is from anchor
+     // Use p5's system variables for mouse/touch position
+     let currentInputPos = createVector(mouseX, mouseY);
+     let displacement = p5.Vector.sub(currentInputPos, anchorPos); // Vector from anchor to input
+     let distance = displacement.mag(); // How far input is from anchor
 
      // Limit stretch distance
      if (distance > maxStretch) {
        displacement.setMag(maxStretch); // Keep direction, limit magnitude
        ball.pos = p5.Vector.add(anchorPos, displacement); // Set ball pos at max stretch
      } else {
-       ball.pos.set(mouseX, mouseY); // Ball follows mouse within limit
+       // Ball follows input position within limit
+       ball.pos.set(currentInputPos.x, currentInputPos.y);
      }
    } else {
      // If not held, snap ball back to anchor point
      ball.pos.set(anchorX, anchorY);
    }
 }
+
 
 // Updates ball physics (gravity, velocity, friction) when launched
 function physicsUpdate() {
@@ -669,30 +674,30 @@ function mousePressed() {
     if (gameState === 'aiming') {
       let anchorX = pole.x;
       let anchorY = pole.y - pole.poleHeight + pole.anchorYOffset;
-      // Calculate distance from click to anchor
+      // Calculate distance from click/touch to anchor
       let d = dist(mouseX, mouseY, anchorX, anchorY);
-      // Allow grabbing if click is within a certain radius of the anchor (relative to ball size)
-      if (d < ball.radius * 3.0) {
+      // Allow grabbing if click/touch is within a certain radius of the anchor (relative to ball size)
+      if (d < ball.radius * 3.0) { // Grab radius multiplier
         ball.isHeld = true; // Flag that ball is being held
-        aimingLogic(); // Immediately snap ball to mouse/touch position
+        aimingLogic(); // Immediately snap ball to input position
       }
     }
-    // If game is over, clicking restarts the game
+    // If game is over, clicking/tapping restarts the game
     else if (gameState === 'gameOver') {
       currentLevel = 0; // Reset level count
       setupLevel();   // Set up level 1
     }
-    // Prevent default touch behavior like scrolling
+    // Prevent default browser actions for touch events (like scrolling or zooming)
     return false;
 }
 
-// Called continuously while mouse button or touch is held down
+// Called continuously while mouse button or touch is held down and moved
 function mouseDragged() {
   // If aiming and holding the ball, update aiming position
   if (gameState === 'aiming' && ball.isHeld) {
     aimingLogic();
   }
-  // Prevent default touch behavior
+  // Prevent default browser actions for touch events
   return false;
 }
 
@@ -708,8 +713,8 @@ function mouseReleased() {
         let anchorY = pole.y - pole.poleHeight + pole.anchorYOffset;
         let launchVector = p5.Vector.sub(createVector(anchorX, anchorY), ball.pos);
 
-        // *** Increased launch multiplier for more speed ***
-        let launchMultiplier = 0.35; // Adjust this value for desired speed
+        // Increased launch multiplier for more speed
+        let launchMultiplier = 0.35; // Adjust this value for desired speed (e.g., 0.3 - 0.5)
 
         // Calculate initial velocity based on vector, force, and multiplier
         ball.vel = launchVector.mult(elasticForce * launchMultiplier);
@@ -717,14 +722,8 @@ function mouseReleased() {
 
         console.log(`Launched: Multiplier=${launchMultiplier}, V=(${ball.vel.x.toFixed(2)}, ${ball.vel.y.toFixed(2)})`);
     }
-     // Prevent default touch behavior
+     // Prevent default browser actions for touch events
     return false;
 }
-
-// Optional: Handle touch events similarly to mouse events for better mobile support
-// (p5.js often maps touches to mouse events, but explicit handlers can be clearer)
-// function touchStarted() { mousePressed(); return false; }
-// function touchMoved() { mouseDragged(); return false; }
-// function touchEnded() { mouseReleased(); return false; }
 
 // --- End ---

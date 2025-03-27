@@ -177,7 +177,7 @@ function mouseReleased() {
         let launchVector = p5.Vector.sub(currentAnchor, ball.pos);
 
         // --- Adjust Base Multiplier for overall power level ---
-        const BASE_LAUNCH_MULTIPLIER = 0.85; // Higher base, adjust if needed
+        const BASE_LAUNCH_MULTIPLIER = 1; // Higher base, adjust if needed
 
         // Calculate effective multiplier based on scale factor
         // Dividing by sqrt(scaleFactor) boosts power on small screens

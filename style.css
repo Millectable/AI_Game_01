@@ -5,7 +5,7 @@ html, body {
   padding: 0;
   overflow: hidden; /* Prevent scrollbars */
   /* Match the sketch background color for seamless look */
-  background-color: #F5EFE4; /* Beige/Cream from "MILLECTABLES" theme */
+  background-color: #F5EFE4; /* Beige/Cream theme */
   width: 100%;
   height: 100%;
   display: flex;
@@ -20,7 +20,10 @@ html, body {
 
 canvas {
   display: block;
-  /* No width, height, or object-fit needed here.
-     p5.js's createCanvas/resizeCanvas will set the size,
-     and the flexbox settings on the body will center it. */
+  /* *** ADDED BACK for simpler scaling *** */
+  /* Let the canvas fill the container conceptually */
+  width: 100%;
+  height: 100%;
+  /* Scale the canvas visually while maintaining aspect ratio */
+  object-fit: contain;
 }

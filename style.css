@@ -3,8 +3,9 @@
 html, body {
   margin: 0;
   padding: 0;
-  overflow: hidden; /* Prevent scrollbars if the scaled canvas slightly overflows */
-  background-color: #1a1a2e; /* Match sketch background for seamless letterboxing */
+  overflow: hidden; /* Prevent scrollbars */
+  /* *** CHANGE: Match new sketch background color *** */
+  background-color: #F5EFE4; /* Beige/Cream from image */
   width: 100%;
   height: 100%;
   display: flex;
@@ -16,10 +17,5 @@ canvas {
   display: block;
   width: 100%;
   height: 100%;
-
-  /* --- KEEP Using contain for letterboxing, where border is needed --- */
-  object-fit: contain;
-
-  /* --- Alternative (would hide the need for a border, but distorts) --- */
-  /* object-fit: fill; */
+  object-fit: contain; /* Keep using contain for letterboxing */
 }

@@ -22,7 +22,7 @@ const BASE_BORDER_WEIGHT = 2;
 const BASE_TEXT_SIZE = 22;
 const MIN_TEXT_SIZE = 12;
 // *** Base multiplier - adjust based on SF^2 logic ***
-// const BASE_LAUNCH_MULTIPLIER = 0.4; // Previous value for *SF logic
+// const BASE_LAUNCH_MULTIPLIER = 0.3; // Previous value
 const MIN_SCALE_FACTOR_FOR_LAUNCH = 0.4;
 
 // --- Style & Colors ---
@@ -167,7 +167,7 @@ function didBallHitBox() { let closestX = constrain(ball.pos.x, targetBox.x, tar
 function mousePressed() { if (gameState === 'aiming') { let currentAnchor = calculateAnchorPos(); if (!currentAnchor) return false; let d = dist(mouseX, mouseY, currentAnchor.x, currentAnchor.y); if (d < ball.radius * 3.5) { ball.isHeld = true; aimingLogic(); } } else if (gameState === 'gameOver') { currentLevel = 0; setupLevel(); } return false; } // Uses scaled ball.radius
 function mouseDragged() { if (gameState === 'aiming' && ball.isHeld) { aimingLogic(); } return false; }
 
-// *** UPDATED mouseReleased - Multiply by Scale Factor SQUARED ***
+// *** UPDATED mouseReleased - Multiply by Scale Factor SQUARED & INCREASED BASE ***
 function mouseReleased() {
     if (gameState === 'aiming' && ball.isHeld) {
         ball.isHeld = false; gameState = 'launched';
@@ -176,8 +176,8 @@ function mouseReleased() {
 
         let launchVector = p5.Vector.sub(currentAnchor, ball.pos);
 
-        // --- Adjust Base Multiplier ---
-        const BASE_LAUNCH_MULTIPLIER = 0.3; // Lower base needed due to squaring SF
+        // --- Adjust Base Multiplier for MORE POWER ---
+        const BASE_LAUNCH_MULTIPLIER = 0.9; // Increased base significantly (was 0.3)
 
         // Calculate effective multiplier based on scale factor
         // Multiply by scaleFactor SQUARED to increase power more rapidly on larger screens

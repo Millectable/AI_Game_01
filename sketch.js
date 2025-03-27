@@ -4,7 +4,7 @@ let pole;
 let targetBox;
 let gravity;
 let friction;
-let elasticForce = 0.4;
+let elasticForce = 5;
 let maxStretch = 160;
 
 let gameState = 'aiming';

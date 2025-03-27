@@ -75,7 +75,7 @@ function setup() {
   // Use fixed canvas size
   let canvas = createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
   canvas.elt.addEventListener('contextmenu', (e) => e.preventDefault());
-  console.log(`Canvas created (fixed): ${width}x${height}`);
+  console.log(`Canvas created (fixed): ${width}x${height}`); // width/height are now 1280x720
 
   // Calculate groundLevelY based on fixed height (for shape positioning)
   groundLevelY = height * 0.85;
@@ -92,8 +92,8 @@ function setup() {
   };
   pole = {
     x: 0, y: 0, // Position set in setupLevel
-    // *** ADJUSTED POLE HEIGHT ***
-    poleHeight: height * 0.65, // Make pole shorter (e.g., 65% of canvas height)
+    // Use shorter pole height
+    poleHeight: height * 0.65,
     anchorYOffset: -10, thickness: 8,
   };
   targetBox = {
@@ -114,8 +114,7 @@ function setTargetBounds() {
     targetMoveBounds.minX = width * 0.35;
     targetMoveBounds.maxX = width * 0.9 - targetBox.w;
     targetMoveBounds.minY = height * 0.1;
-    // Ensure target stays above the (now shorter) pole anchor area
-    // Calculation now uses the updated pole.poleHeight
+    // Ensure target stays above the pole anchor area
     targetMoveBounds.maxY = min(height * 0.6, height - pole.poleHeight - targetBox.h - 20);
 
      // Add validity checks
@@ -150,7 +149,6 @@ function setupLevel() {
       maxTargetX = width - targetBox.w - width * 0.05;
   }
   let minYTarget = height * 0.15;
-  // Max Y calculation now uses shorter pole height
   let maxYTarget = height - pole.poleHeight - targetBox.h - height * 0.1;
    if (maxYTarget < minYTarget) {
         maxYTarget = minYTarget + 1;
@@ -162,7 +160,7 @@ function setupLevel() {
   targetBox.x = targetBox.initialX;
   targetBox.y = targetBox.initialY;
 
-  // Place ball at the FIXED anchor point (using updated pole height)
+  // Place ball at the FIXED anchor point
   let anchorX = pole.x;
   let anchorY = pole.y - pole.poleHeight + pole.anchorYOffset;
   ball.pos = createVector(anchorX, anchorY);
@@ -189,7 +187,7 @@ function draw() {
 
   drawGround();
   updateAndDrawParticles();
-  drawPole(); // Draws shorter pole
+  drawPole();
   drawTargetBox();
 
   if (gameState === 'aiming') {
@@ -214,7 +212,6 @@ function updateTargetPosition() {
     let timeFactorX = (sin(frameCount * targetMoveSpeedX) + 1) / 2;
     let timeFactorY = (cos(frameCount * targetMoveSpeedY) + 1) / 2;
 
-    // Use bounds calculated in setTargetBounds (which depends on poleHeight)
     if (targetMoveBounds.maxX > targetMoveBounds.minX && targetMoveBounds.maxY > targetMoveBounds.minY) {
         targetBox.x = map(timeFactorX, 0, 1, targetMoveBounds.minX, targetMoveBounds.maxX);
         targetBox.y = map(timeFactorY, 0, 1, targetMoveBounds.minY, targetMoveBounds.maxY);
@@ -224,7 +221,6 @@ function updateTargetPosition() {
         if(frameCount % 60 === 0) console.warn("Using fallback target position due to invalid bounds.");
     }
 }
-
 
 // --- Visual Elements Drawing Functions ---
 function applyGlow(glowColor, intensity) {
@@ -239,176 +235,137 @@ function removeGlow() {
     }
 }
 
-function drawGround() { // Draws shapes below groundLevelY
-    push();
-    noFill();
-    strokeWeight(1.5);
-    stroke(clrGeoShapes);
+function drawGround() {
+    push(); noFill(); strokeWeight(1.5); stroke(clrGeoShapes);
     applyGlow(clrGeoShapesGlow, 8);
     for (let i = 0; i < geometricShapes.length; i++) {
-        let shape = geometricShapes[i];
-        shape.angle += 0.008;
+        let shape = geometricShapes[i]; shape.angle += 0.008;
         shape.x += sin(frameCount * 0.025 + i * 0.6) * 0.2;
         shape.y += cos(frameCount * 0.018 + i * 0.8) * 0.15;
         shape.y = constrain(shape.y, groundLevelY + 10, height - 20);
         if (shape.x > width + shape.w) shape.x = -shape.w;
         if (shape.x < -shape.w) shape.x = width + shape.w;
-        push();
-        translate(shape.x, shape.y); rotate(shape.angle); rectMode(CENTER);
-        rect(0, 0, shape.w, shape.h);
-        pop();
-    }
-    removeGlow(); pop();
+        push(); translate(shape.x, shape.y); rotate(shape.angle); rectMode(CENTER);
+        rect(0, 0, shape.w, shape.h); pop();
+    } removeGlow(); pop();
 }
 
-function generateGeometricPatterns() { // Based on fixed groundLevelY
-    geometricShapes = [];
-    let patternAreaHeight = height - groundLevelY;
+function generateGeometricPatterns() {
+    geometricShapes = []; let patternAreaHeight = height - groundLevelY;
     if (patternAreaHeight <= 0) return;
     for (let i = 0; i < NUM_GEO_SHAPES; i++) {
-        let shape = { /* ... */ }; // Full definition needed
-         shape = {
-            x: random(width),
-            y: groundLevelY + random(patternAreaHeight * 0.1, patternAreaHeight * 0.8),
-            w: random(20, 150), h: random(10, 80), angle: random(TWO_PI)
-        };
+        let shape = { x: random(width), y: groundLevelY + random(patternAreaHeight * 0.1, patternAreaHeight * 0.8), w: random(20, 150), h: random(10, 80), angle: random(TWO_PI) };
         geometricShapes.push(shape);
     }
 }
 
-function updateAndDrawParticles() { // Uses fixed dimensions
+function updateAndDrawParticles() {
     // Side Particles
     if (frameCount % 3 === 0 && sideParticles.length < MAX_SIDE_PARTICLES) spawnSideParticle();
     for (let i = sideParticles.length - 1; i >= 0; i--) {
         let p = sideParticles[i]; p.pos.add(p.vel); p.lifespan -= 1.5;
         if (p.lifespan <= 0) { sideParticles.splice(i, 1); }
-        else { /* Draw */ push(); let alpha = map(p.lifespan, 0, p.initialLifespan, 0, 200); let glowAmount = map(p.lifespan, 0, p.initialLifespan, 0, 6); let baseColor = color(clrSideParticle); fill(red(baseColor), green(baseColor), blue(baseColor), alpha); applyGlow(clrSideParticleGlow, glowAmount); noStroke(); ellipse(p.pos.x, p.pos.y, p.size, p.size); removeGlow(); pop(); }
+        else { push(); let alpha = map(p.lifespan, 0, p.initialLifespan, 0, 200); let glowAmount = map(p.lifespan, 0, p.initialLifespan, 0, 6); let baseColor = color(clrSideParticle); fill(red(baseColor), green(baseColor), blue(baseColor), alpha); applyGlow(clrSideParticleGlow, glowAmount); noStroke(); ellipse(p.pos.x, p.pos.y, p.size, p.size); removeGlow(); pop(); }
     }
     // Ground Particles
     if (frameCount % 5 === 0 && groundParticles.length < MAX_GROUND_PARTICLES) spawnGroundParticle();
     for (let i = groundParticles.length - 1; i >= 0; i--) {
         let p = groundParticles[i]; p.pos.add(p.vel); p.lifespan -= 1;
         if (p.lifespan <= 0) { groundParticles.splice(i, 1); }
-        else { /* Draw */ push(); let alpha = map(p.lifespan, 0, p.initialLifespan, 0, 120); let glowAmount = map(p.lifespan, 0, p.initialLifespan, 0, 7); let baseColor = color(clrGroundParticleGlow); fill(red(baseColor), green(baseColor), blue(baseColor), alpha); applyGlow(clrGroundParticleGlow, glowAmount); noStroke(); ellipse(p.pos.x, p.pos.y, p.size, p.size); removeGlow(); pop(); }
+        else { push(); let alpha = map(p.lifespan, 0, p.initialLifespan, 0, 120); let glowAmount = map(p.lifespan, 0, p.initialLifespan, 0, 7); let baseColor = color(clrGroundParticleGlow); fill(red(baseColor), green(baseColor), blue(baseColor), alpha); applyGlow(clrGroundParticleGlow, glowAmount); noStroke(); ellipse(p.pos.x, p.pos.y, p.size, p.size); removeGlow(); pop(); }
     }
 }
 
-function spawnSideParticle() { // Uses fixed dimensions
-    let edgeMargin = width * 0.08;
-    let xPos = (random() < 0.5) ? random(edgeMargin) : random(width - edgeMargin, width);
+function spawnSideParticle() {
+    let edgeMargin = width * 0.08; let xPos = (random() < 0.5) ? random(edgeMargin) : random(width - edgeMargin, width);
     let yPos = random(height * 0.2, height * 1.1);
-    let particle = { /* ... */ }; // Full definition needed
-    particle = { pos: createVector(xPos, yPos), vel: createVector(random(-0.2, 0.2), random(-0.6, -1.2)), initialLifespan: random(120, 280), lifespan: 0, size: random(1.5, 4), };
-    particle.lifespan = particle.initialLifespan;
-    sideParticles.push(particle);
+    let particle = { pos: createVector(xPos, yPos), vel: createVector(random(-0.2, 0.2), random(-0.6, -1.2)), initialLifespan: random(120, 280), lifespan: 0, size: random(1.5, 4), };
+    particle.lifespan = particle.initialLifespan; sideParticles.push(particle);
 }
-function spawnGroundParticle() { // Uses fixed dimensions
+function spawnGroundParticle() {
      if (typeof groundLevelY !== 'number' || groundLevelY >= height) return;
     let xPos = random(width); let yPos = random(groundLevelY + 5, height - 5);
-    let particle = { /* ... */ }; // Full definition needed
-    particle = { pos: createVector(xPos, yPos), vel: createVector(random(-0.3, 0.3), random(-0.15, 0.15)), initialLifespan: random(100, 200), lifespan: 0, size: random(2, 5), };
-    particle.lifespan = particle.initialLifespan;
-    groundParticles.push(particle);
+    let particle = { pos: createVector(xPos, yPos), vel: createVector(random(-0.3, 0.3), random(-0.15, 0.15)), initialLifespan: random(100, 200), lifespan: 0, size: random(2, 5), };
+    particle.lifespan = particle.initialLifespan; groundParticles.push(particle);
 }
 
-function drawPole() { // Draws shorter pole from bottom
-    push();
-    // Top Y calculation uses the adjusted poleHeight
-    let poleTopY = pole.y - pole.poleHeight;
-    strokeWeight(pole.thickness); stroke(clrPoleBase);
-    line(pole.x, pole.y, pole.x, poleTopY); // Line from bottom up
-    let anchorX = pole.x; let anchorY = poleTopY + pole.anchorYOffset; // Anchor pos adjusted
+function drawPole() {
+    push(); let poleTopY = pole.y - pole.poleHeight;
+    strokeWeight(pole.thickness); stroke(clrPoleBase); line(pole.x, pole.y, pole.x, poleTopY);
+    let anchorX = pole.x; let anchorY = poleTopY + pole.anchorYOffset;
     fill(clrPoleAccent); applyGlow(clrSubtleGlow, 5); noStroke();
-    ellipse(anchorX, anchorY, pole.thickness * 1.8, pole.thickness * 1.8);
-    removeGlow(); pop();
+    ellipse(anchorX, anchorY, pole.thickness * 1.8, pole.thickness * 1.8); removeGlow(); pop();
 }
-
-function drawTargetBox() { // No changes
-    let pulse = (sin(frameCount * pulseSpeed) + 1) / 2;
-    let scaleFactor = map(pulse, 0, 1, 1.0, 1.03);
+function drawTargetBox() {
+    let pulse = (sin(frameCount * pulseSpeed) + 1) / 2; let scaleFactor = map(pulse, 0, 1, 1.0, 1.03);
     let glowAmount = defaultGlow + map(pulse, 0, 1, 0, targetPulseIntensity);
     let centerX = targetBox.x + targetBox.w / 2; let centerY = targetBox.y + targetBox.h / 2;
     let scaledW = targetBox.w * scaleFactor; let scaledH = targetBox.h * scaleFactor;
     push(); applyGlow(clrTargetGlow, glowAmount); fill(clrTarget); noStroke();
-    rectMode(CENTER); rect(centerX, centerY, scaledW, scaledH, 5);
-    removeGlow(); pop();
+    rectMode(CENTER); rect(centerX, centerY, scaledW, scaledH, 5); removeGlow(); pop();
 }
-function drawBall() { // No changes
+function drawBall() {
     push(); applyGlow(clrBallGlow, defaultGlow); fill(clrBall); noStroke();
-    ellipse(ball.pos.x, ball.pos.y, ball.radius * 2, ball.radius * 2);
-    pop();
+    ellipse(ball.pos.x, ball.pos.y, ball.radius * 2, ball.radius * 2); pop();
 }
-function drawElastic() { // Anchor pos adjusted automatically
+function drawElastic() {
     let anchorX = pole.x; let anchorY = pole.y - pole.poleHeight + pole.anchorYOffset;
     let stretchVector = p5.Vector.sub(ball.pos, createVector(anchorX, anchorY));
-    let currentStretch = stretchVector.mag();
-    if (currentStretch < 2 && !ball.isHeld) return;
+    let currentStretch = stretchVector.mag(); if (currentStretch < 2 && !ball.isHeld) return;
     let stretchRatio = constrain(currentStretch / maxStretch, 0, 1);
-    let glowAmount = 4 + stretchRatio * elasticGlowIntensity;
-    let thickness = map(stretchRatio, 0, 1, 2, 5);
+    let glowAmount = 4 + stretchRatio * elasticGlowIntensity; let thickness = map(stretchRatio, 0, 1, 2, 5);
     push(); applyGlow(clrElasticGlow, glowAmount); stroke(clrElasticBase); strokeWeight(thickness);
-    line(anchorX, anchorY, ball.pos.x, ball.pos.y);
-    pop();
+    line(anchorX, anchorY, ball.pos.x, ball.pos.y); pop();
 }
-
-function displayScore() { // Uses fixed dimensions
-    let scoreText = `Level: ${currentLevel + 1}`;
-    let txtX = width * 0.03; let txtY = height * 0.07;
-    let glowAmount = 3 + (sin(frameCount * pulseSpeed * 0.8) + 1) * 2;
-    push(); let baseSize = 26; textSize(baseSize); textFont(gameFont); textAlign(LEFT, TOP);
-    applyGlow(clrTextGlow, glowAmount); fill(clrTextGlow);
-    text(scoreText, txtX + 1, txtY + 1); removeGlow(); fill(clrText);
-    text(scoreText, txtX, txtY); pop();
+function displayScore() {
+    let scoreText = `Level: ${currentLevel + 1}`; let txtX = width * 0.03; let txtY = height * 0.07;
+    let glowAmount = 3 + (sin(frameCount * pulseSpeed * 0.8) + 1) * 2; push();
+    let baseSize = 26; textSize(baseSize); textFont(gameFont); textAlign(LEFT, TOP);
+    applyGlow(clrTextGlow, glowAmount); fill(clrTextGlow); text(scoreText, txtX + 1, txtY + 1);
+    removeGlow(); fill(clrText); text(scoreText, txtX, txtY); pop();
 }
-function showGameOver() { // Uses fixed dimensions
+function showGameOver() {
     let overlayAlpha = 180; push(); let overlayColor = color(clrBackground);
-    overlayColor.setAlpha(overlayAlpha); fill(overlayColor); noStroke();
-    rect(0, 0, width, height); let mainTxtSize = 60; let subTxtSize = 28;
-    let textY = height / 2; let lineSpacing = 50;
-    let pulse = (sin(frameCount * pulseSpeed * 1.5) + 1) / 2;
-    let glowAmount = 8 + pulse * 6; textFont(gameFont); textAlign(CENTER, CENTER);
-    applyGlow(clrTextGlow, glowAmount); fill(clrText); textSize(mainTxtSize);
-    text('GAME OVER', width / 2, textY - lineSpacing); removeGlow();
-    applyGlow(clrTextGlow, glowAmount * 0.6); fill(clrText); textSize(subTxtSize);
+    overlayColor.setAlpha(overlayAlpha); fill(overlayColor); noStroke(); rect(0, 0, width, height);
+    let mainTxtSize = 60; let subTxtSize = 28; let textY = height / 2; let lineSpacing = 50;
+    let pulse = (sin(frameCount * pulseSpeed * 1.5) + 1) / 2; let glowAmount = 8 + pulse * 6;
+    textFont(gameFont); textAlign(CENTER, CENTER); applyGlow(clrTextGlow, glowAmount);
+    fill(clrText); textSize(mainTxtSize); text('GAME OVER', width / 2, textY - lineSpacing);
+    removeGlow(); applyGlow(clrTextGlow, glowAmount * 0.6); fill(clrText); textSize(subTxtSize);
     text(`You reached level ${currentLevel + 1}`, width / 2, textY + lineSpacing * 0.5);
     removeGlow(); fill(clrText); textSize(subTxtSize * 0.9);
     text('Click to Restart', width / 2, textY + lineSpacing * 1.5); pop();
 }
-function drawGlowingBorder() { // Uses fixed dimensions
+function drawGlowingBorder() {
     push(); let pulse = (sin(frameCount * pulseSpeed * borderPulseSpeedFactor) + 1) / 2;
-    let currentGlow = borderBaseGlow + pulse * borderPulseIntensity;
-    let offset = borderStrokeWeight / 2; noFill(); stroke(clrMainAccent);
-    strokeWeight(borderStrokeWeight); applyGlow(clrBorderGlow, currentGlow);
-    rect(offset, offset, width - borderStrokeWeight, height - borderStrokeWeight);
-    removeGlow(); pop();
+    let currentGlow = borderBaseGlow + pulse * borderPulseIntensity; let offset = borderStrokeWeight / 2;
+    noFill(); stroke(clrMainAccent); strokeWeight(borderStrokeWeight); applyGlow(clrBorderGlow, currentGlow);
+    rect(offset, offset, width - borderStrokeWeight, height - borderStrokeWeight); removeGlow(); pop();
 }
 
 // --- Game Mechanics & Physics ---
-function aimingLogic() { // Anchor pos adjusted automatically
+function aimingLogic() {
    let anchorX = pole.x; let anchorY = pole.y - pole.poleHeight + pole.anchorYOffset;
    let anchorPos = createVector(anchorX, anchorY); if (ball.isHeld) {
-     let currentInputPos = createVector(mouseX, mouseY);
-     let displacement = p5.Vector.sub(currentInputPos, anchorPos);
+     let currentInputPos = createVector(mouseX, mouseY); let displacement = p5.Vector.sub(currentInputPos, anchorPos);
      let distance = displacement.mag(); if (distance > maxStretch) {
        displacement.setMag(maxStretch); ball.pos = p5.Vector.add(anchorPos, displacement);
      } else { ball.pos.set(currentInputPos.x, currentInputPos.y); }
    } else { ball.pos.set(anchorX, anchorY); }
 }
-function physicsUpdate() { // No changes
+function physicsUpdate() {
   if (gameState !== 'launched') return; ball.acc.add(gravity); ball.vel.add(ball.acc);
   ball.vel.mult(friction); ball.pos.add(ball.vel); ball.acc.mult(0);
 }
-function checkCollisions() { // Uses fixed dimensions
+function checkCollisions() {
     if (gameState !== 'launched') return; if (didBallHitBox()) {
       console.log("Target Hit!"); currentLevel++; setupLevel(); return; }
     let hitBorder = false;
-    if (ball.pos.x - ball.radius <= 0) hitBorder = true;
-    else if (ball.pos.x + ball.radius >= width) hitBorder = true;
-    else if (ball.pos.y - ball.radius <= 0) hitBorder = true;
-    else if (ball.pos.y + ball.radius >= height) hitBorder = true;
-    if (hitBorder) { gameState = 'gameOver'; console.log("Hit Border!"); return; } // Added log
+    if (ball.pos.x - ball.radius <= 0) hitBorder = true; else if (ball.pos.x + ball.radius >= width) hitBorder = true;
+    else if (ball.pos.y - ball.radius <= 0) hitBorder = true; else if (ball.pos.y + ball.radius >= height) hitBorder = true;
+    if (hitBorder) { gameState = 'gameOver'; console.log("Hit Border!"); return; }
 }
-function didBallHitBox() { // No changes
+function didBallHitBox() {
   let closestX = constrain(ball.pos.x, targetBox.x, targetBox.x + targetBox.w);
   let closestY = constrain(ball.pos.y, targetBox.y, targetBox.y + targetBox.h);
   let dSq = pow(ball.pos.x - closestX, 2) + pow(ball.pos.y - closestY, 2);
@@ -416,7 +373,7 @@ function didBallHitBox() { // No changes
 }
 
 // --- Input Event Handlers ---
-function mousePressed() { // Anchor pos adjusted automatically
+function mousePressed() {
     if (gameState === 'aiming') {
       let anchorX = pole.x; let anchorY = pole.y - pole.poleHeight + pole.anchorYOffset;
       let d = dist(mouseX, mouseY, anchorX, anchorY);
@@ -424,16 +381,15 @@ function mousePressed() { // Anchor pos adjusted automatically
     } else if (gameState === 'gameOver') { currentLevel = 0; setupLevel(); }
     return false;
 }
-function mouseDragged() { // No changes
+function mouseDragged() {
   if (gameState === 'aiming' && ball.isHeld) { aimingLogic(); } return false;
 }
-function mouseReleased() { // Anchor pos adjusted automatically, POWER INCREASED
+function mouseReleased() {
     if (gameState === 'aiming' && ball.isHeld) {
         ball.isHeld = false; gameState = 'launched';
         let anchorX = pole.x; let anchorY = pole.y - pole.poleHeight + pole.anchorYOffset;
         let launchVector = p5.Vector.sub(createVector(anchorX, anchorY), ball.pos);
-        // Keep increased power
-        let launchMultiplier = 0.7;
+        let launchMultiplier = 0.7; // Keep high power
         ball.vel = launchVector.mult(elasticForce * launchMultiplier); ball.acc.mult(0);
         console.log(`Launched: Multiplier=${launchMultiplier}, V=(${ball.vel.x.toFixed(2)}, ${ball.vel.y.toFixed(2)})`);
     }

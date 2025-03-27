@@ -2,7 +2,7 @@
 let ball, pole, targetBox;
 let gravity, friction;
 let elasticForce = 0.4;
-let gameState = 'aiming';
+let gameState = 'aiming'; // aiming, launched, exploding, gameOver
 let currentLevel = 0;
 
 // --- Reference & Scaling ---
@@ -11,7 +11,7 @@ const REF_HEIGHT = 640;
 const TARGET_ASPECT_RATIO = REF_WIDTH / REF_HEIGHT;
 let scaleFactor = 1;
 
-// --- Base Sizes (relative to NEW REF_WIDTH) ---
+// --- Base Sizes ---
 const BASE_BALL_RADIUS = 20;
 const BASE_POLE_THICKNESS = 7;
 const BASE_POLE_ANCHOR_OFFSET = -8;
@@ -21,15 +21,17 @@ const BASE_MAX_STRETCH = 140;
 const BASE_BORDER_WEIGHT = 2;
 const BASE_TEXT_SIZE = 22;
 const MIN_TEXT_SIZE = 12;
-// *** Base multiplier for 1/sqrt(SF) logic ***
-// const BASE_LAUNCH_MULTIPLIER = 0.6; // Previous value for *sqrt(SF)
+const BASE_LAUNCH_MULTIPLIER = 0.85; // Adjusted Base power
 const MIN_SCALE_FACTOR_FOR_LAUNCH = 0.4;
 
 // --- Style & Colors ---
 const clrBackground = '#F5EFE4'; const clrText = '#8DA1AD'; const clrTextGlow = '#0B3D42';
 const clrMainAccent = '#0B3D42'; const clrSecondaryAccent = '#8DA1AD'; const clrSubtleGlow = '#A8BAC4';
-const clrBall = clrMainAccent; const clrBallGlow = clrSecondaryAccent; const clrPoleBase = clrSecondaryAccent;
-const clrPoleAccent = '#C0CED7'; const clrGeoShapes = clrSecondaryAccent; const clrGeoShapesGlow = clrSubtleGlow;
+const clrBall = clrMainAccent; const clrBallGlow = clrSecondaryAccent;
+// *** CHANGE Pole Color ***
+const clrPoleBase = clrMainAccent; // Dark Teal for more contrast
+const clrPoleAccent = '#C0CED7'; // Keep anchor lighter? Or use clrText? Let's keep for now.
+const clrGeoShapes = clrSecondaryAccent; const clrGeoShapesGlow = clrSubtleGlow;
 const clrGroundParticleGlow = clrSubtleGlow; const clrElasticBase = clrMainAccent;
 const clrElasticGlow = clrSecondaryAccent; const clrTarget = clrMainAccent; const clrTargetGlow = clrSecondaryAccent;
 const clrSideParticle = clrSecondaryAccent; const clrSideParticleGlow = clrSubtleGlow;
@@ -44,13 +46,24 @@ const poleSwaySpeed = 0.02; const poleSwayAmount = 1.5; const anchorBobSpeed = 0
 const targetMoveSpeedX = 0.015; const targetMoveSpeedY = 0.011;
 let groundLevelY;
 let geometricShapes = []; let groundParticles = []; let sideParticles = [];
+// *** NEW: Explosion Particles ***
+let explosionParticles = [];
+const NUM_EXPLOSION_PARTICLES = 40; // Number of particles per explosion
+const EXPLOSION_LIFESPAN_MIN = 20; // Frames
+const EXPLOSION_LIFESPAN_MAX = 55; // Frames
+const EXPLOSION_SPEED_MIN = 2;
+const EXPLOSION_SPEED_MAX = 7;
+const EXPLOSION_PARTICLE_SIZE_MIN = 3;
+const EXPLOSION_PARTICLE_SIZE_MAX = 9;
+
 let targetMoveBounds = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
 let gameFont = 'Georgia';
-let scaledMaxStretch, scaledBorderStrokeWeight; // Declare globals
+let scaledMaxStretch, scaledBorderStrokeWeight;
 
 // ========================================================
 // SETUP & RESIZING
 // ========================================================
+
 function setup() {
   console.log("Setup starting...");
   let canvasSize = calculateCanvasSize();
@@ -101,6 +114,7 @@ function setLayoutAndScaling() {
 // ========================================================
 // LEVEL SETUP & ELEMENT POSITIONING
 // ========================================================
+
 function setupLevel() {
   console.log("setupLevel called..."); gameState = 'aiming'; ball.isHeld = false;
   pole.baseX = width * 0.15; pole.x = pole.baseX; pole.y = height;
@@ -108,7 +122,9 @@ function setupLevel() {
   let minYTarget = height * 0.15; let maxYTarget = height - pole.poleHeight - targetBox.h - height * 0.15; if (maxYTarget <= minYTarget) { maxYTarget = minYTarget + 1; }
   targetBox.initialX = random(minTargetX, maxTargetX); targetBox.initialY = random(minYTarget, maxYTarget); targetBox.x = targetBox.initialX; targetBox.y = targetBox.initialY;
   let initialAnchorPos = calculateAnchorPos(0); if (initialAnchorPos) { ball.pos = initialAnchorPos.copy(); ball.vel = createVector(0, 0); ball.acc = createVector(0, 0); } else { console.error("Failed anchor pos in setupLevel!"); ball.pos = createVector(pole.baseX, height - pole.poleHeight); }
-  generateGeometricPatterns(); console.log(`Level ${currentLevel + 1} setup complete.`);
+  generateGeometricPatterns();
+  explosionParticles = []; // Clear any old explosion particles
+  console.log(`Level ${currentLevel + 1} setup complete.`);
 }
 
 function calculateAnchorPos(animationFrameCount = frameCount) {
@@ -119,14 +135,49 @@ function calculateAnchorPos(animationFrameCount = frameCount) {
 // ========================================================
 // DRAW LOOP & UPDATE FUNCTIONS
 // ========================================================
+
 function draw() {
   if (!ball || !pole || !targetBox || !width || !height || width <= 0 || height <= 0) { if (frameCount < 60) console.log("Waiting..."); return; }
-  background(clrBackground); if (gameState !== 'gameOver') updateTargetPosition();
-  drawGround(); updateAndDrawParticles(); drawPole(); drawTargetBox();
+  background(clrBackground);
+
+  // Update moving elements only if game is active
+  if (gameState !== 'gameOver' && gameState !== 'exploding') { // Don't move target during explosion
+      updateTargetPosition();
+  }
+
+  // Update all particle systems
+  updateAndDrawParticles(); // Background dust
+  updateAndDrawExplosionParticles(); // Explosion (if any)
+
+  // Draw background shapes, pole
+  drawGround();
+  drawPole();
+
+  // Draw target only if not exploding (or draw it behind explosion)
+  // Let's draw it, explosion will cover it
+  if (gameState !== 'gameOver') { // Don't draw target if game is over? Or keep it static? Let's keep it until next level.
+       drawTargetBox();
+  }
+
+
+  // Handle game state specific logic and drawing
   if (gameState === 'aiming') { aimingLogic(); if (ball.isHeld) drawElastic(); drawBall(); }
   else if (gameState === 'launched') { physicsUpdate(); checkCollisions(); drawBall(); }
+  else if (gameState === 'exploding') {
+      // Ball might still be moving or drawn at impact point
+      // physicsUpdate(); // Optional: let ball continue briefly?
+      drawBall();
+      // Check if explosion animation is finished
+      if (explosionParticles.length === 0) {
+          console.log("Explosion finished, setting up next level.");
+          currentLevel++;
+          setupLevel(); // This will reset gameState to 'aiming'
+      }
+  }
   else if (gameState === 'gameOver') { drawBall(); showGameOver(); }
-  displayScore(); drawGlowingBorder();
+
+  displayScore();
+  drawGlowingBorder();
 }
 function updateTargetPosition() {
   let timeFactorX = (sin(frameCount * targetMoveSpeedX) + 1) / 2; let timeFactorY = (cos(frameCount * targetMoveSpeedY) + 1) / 2; if (targetMoveBounds.maxX > targetMoveBounds.minX && targetMoveBounds.maxY > targetMoveBounds.minY) { targetBox.x = map(timeFactorX, 0, 1, targetMoveBounds.minX, targetMoveBounds.maxX); targetBox.y = map(timeFactorY, 0, 1, targetMoveBounds.minY, targetMoveBounds.maxY); } else { targetBox.x = targetBox.initialX; targetBox.y = targetBox.initialY; if(frameCount % 60 === 0) console.warn("Using fallback target position."); }
@@ -137,34 +188,113 @@ function updateTargetPosition() {
 // ========================================================
 function applyGlow(glowColor, intensity) { if(drawingContext) { drawingContext.shadowBlur = intensity; drawingContext.shadowColor = glowColor; } }
 function removeGlow() { if(drawingContext) { drawingContext.shadowBlur = 0; } }
-function drawGround() { push(); noFill(); strokeWeight(1.5); stroke(clrGeoShapes); applyGlow(clrGeoShapesGlow, 8); for (let i = 0; i < geometricShapes.length; i++) { let shape = geometricShapes[i]; shape.angle += 0.008; shape.x += sin(frameCount * 0.025 + i * 0.6) * 0.2; shape.y += cos(frameCount * 0.018 + i * 0.8) * 0.15; shape.y = constrain(shape.y, groundLevelY + 10, height - 20); if (shape.x > width + shape.w) shape.x = -shape.w; if (shape.x < -shape.w) shape.x = width + shape.w; push(); translate(shape.x, shape.y); rotate(shape.angle); rectMode(CENTER); rect(0, 0, shape.w, shape.h); pop(); } removeGlow(); pop(); } // Shapes not scaled
-function generateGeometricPatterns() { geometricShapes = []; let patternAreaHeight = height - groundLevelY; if (patternAreaHeight <= 0) return; for (let i = 0; i < NUM_GEO_SHAPES; i++) { let shape = { x: random(width), y: groundLevelY + random(patternAreaHeight * 0.1, patternAreaHeight * 0.8), w: random(20, 150), h: random(10, 80), angle: random(TWO_PI) }; geometricShapes.push(shape); } } // Shapes not scaled
+function drawGround() { push(); noFill(); strokeWeight(1.5); stroke(clrGeoShapes); applyGlow(clrGeoShapesGlow, 8); for (let i = 0; i < geometricShapes.length; i++) { let shape = geometricShapes[i]; shape.angle += 0.008; shape.x += sin(frameCount * 0.025 + i * 0.6) * 0.2; shape.y += cos(frameCount * 0.018 + i * 0.8) * 0.15; shape.y = constrain(shape.y, groundLevelY + 10, height - 20); if (shape.x > width + shape.w) shape.x = -shape.w; if (shape.x < -shape.w) shape.x = width + shape.w; push(); translate(shape.x, shape.y); rotate(shape.angle); rectMode(CENTER); rect(0, 0, shape.w, shape.h); pop(); } removeGlow(); pop(); }
+function generateGeometricPatterns() { geometricShapes = []; let patternAreaHeight = height - groundLevelY; if (patternAreaHeight <= 0) return; for (let i = 0; i < NUM_GEO_SHAPES; i++) { let shape = { x: random(width), y: groundLevelY + random(patternAreaHeight * 0.1, patternAreaHeight * 0.8), w: random(20, 150), h: random(10, 80), angle: random(TWO_PI) }; geometricShapes.push(shape); } }
 function updateAndDrawParticles() {
-    if (frameCount % 3 === 0 && sideParticles.length < MAX_SIDE_PARTICLES) spawnSideParticle(); for (let i = sideParticles.length - 1; i >= 0; i--) { let p = sideParticles[i]; p.pos.add(p.vel); p.lifespan -= 1.5; if (p.lifespan <= 0) { sideParticles.splice(i, 1); } else { push(); let alpha = map(p.lifespan, 0, p.initialLifespan, 0, 200); let glowAmount = map(p.lifespan, 0, p.initialLifespan, 0, 6); let baseColor = color(clrSideParticle); fill(red(baseColor), green(baseColor), blue(baseColor), alpha); applyGlow(clrSideParticleGlow, glowAmount); noStroke(); ellipse(p.pos.x, p.pos.y, p.size * scaleFactor, p.size * scaleFactor); removeGlow(); pop(); } } // Scaled particle size
-    if (frameCount % 5 === 0 && groundParticles.length < MAX_GROUND_PARTICLES) spawnGroundParticle(); for (let i = groundParticles.length - 1; i >= 0; i--) { let p = groundParticles[i]; p.pos.add(p.vel); p.lifespan -= 1; if (p.lifespan <= 0) { groundParticles.splice(i, 1); } else { push(); let alpha = map(p.lifespan, 0, p.initialLifespan, 0, 120); let glowAmount = map(p.lifespan, 0, p.initialLifespan, 0, 7); let baseColor = color(clrGroundParticleGlow); fill(red(baseColor), green(baseColor), blue(baseColor), alpha); applyGlow(clrGroundParticleGlow, glowAmount); noStroke(); ellipse(p.pos.x, p.pos.y, p.size * scaleFactor, p.size * scaleFactor); removeGlow(); pop(); } } // Scaled particle size
+    if (frameCount % 3 === 0 && sideParticles.length < MAX_SIDE_PARTICLES) spawnSideParticle(); for (let i = sideParticles.length - 1; i >= 0; i--) { let p = sideParticles[i]; p.pos.add(p.vel); p.lifespan -= 1.5; if (p.lifespan <= 0) { sideParticles.splice(i, 1); } else { push(); let alpha = map(p.lifespan, 0, p.initialLifespan, 0, 200); let glowAmount = map(p.lifespan, 0, p.initialLifespan, 0, 6); let baseColor = color(clrSideParticle); fill(red(baseColor), green(baseColor), blue(baseColor), alpha); applyGlow(clrSideParticleGlow, glowAmount); noStroke(); ellipse(p.pos.x, p.pos.y, p.size * scaleFactor, p.size * scaleFactor); removeGlow(); pop(); } }
+    if (frameCount % 5 === 0 && groundParticles.length < MAX_GROUND_PARTICLES) spawnGroundParticle(); for (let i = groundParticles.length - 1; i >= 0; i--) { let p = groundParticles[i]; p.pos.add(p.vel); p.lifespan -= 1; if (p.lifespan <= 0) { groundParticles.splice(i, 1); } else { push(); let alpha = map(p.lifespan, 0, p.initialLifespan, 0, 120); let glowAmount = map(p.lifespan, 0, p.initialLifespan, 0, 7); let baseColor = color(clrGroundParticleGlow); fill(red(baseColor), green(baseColor), blue(baseColor), alpha); applyGlow(clrGroundParticleGlow, glowAmount); noStroke(); ellipse(p.pos.x, p.pos.y, p.size * scaleFactor, p.size * scaleFactor); removeGlow(); pop(); } }
 }
-function spawnSideParticle() { let edgeMargin = width * 0.08; let xPos = (random() < 0.5) ? random(edgeMargin) : random(width - edgeMargin, width); let yPos = random(height * 0.2, height * 1.1); let baseSize = random(1.5, 4); let particle = { pos: createVector(xPos, yPos), vel: createVector(random(-0.2, 0.2), random(-0.6, -1.2)), initialLifespan: random(120, 280), lifespan: 0, size: baseSize }; particle.lifespan = particle.initialLifespan; sideParticles.push(particle); } // Stores base size
-function spawnGroundParticle() { if (typeof groundLevelY !== 'number' || groundLevelY >= height) return; let xPos = random(width); let yPos = random(groundLevelY + 5, height - 5); let baseSize = random(2, 5); let particle = { pos: createVector(xPos, yPos), vel: createVector(random(-0.3, 0.3), random(-0.15, 0.15)), initialLifespan: random(100, 200), lifespan: 0, size: baseSize }; particle.lifespan = particle.initialLifespan; groundParticles.push(particle); } // Stores base size
-function drawPole() { push(); let currentPoleX = pole.baseX + sin(frameCount * poleSwaySpeed) * poleSwayAmount; let currentAnchor = calculateAnchorPos(); if (!currentAnchor) return; let poleTopVisibleY = height - pole.poleHeight; strokeWeight(pole.thickness); stroke(clrPoleBase); line(currentPoleX, height, currentPoleX, poleTopVisibleY); fill(clrPoleAccent); applyGlow(clrSubtleGlow, 5); noStroke(); ellipse(currentAnchor.x, currentAnchor.y, pole.thickness * 1.8, pole.thickness * 1.8); removeGlow(); pop(); } // Uses scaled pole.thickness
-function drawTargetBox() { let pulse = (sin(frameCount * pulseSpeed) + 1) / 2; let scaleFactorPulse = map(pulse, 0, 1, 1.0, 1.03); let glowAmount = defaultGlow + map(pulse, 0, 1, 0, targetPulseIntensity); let centerX = targetBox.x + targetBox.w / 2; let centerY = targetBox.y + targetBox.h / 2; let finalW = targetBox.w * scaleFactorPulse; let finalH = targetBox.h * scaleFactorPulse; push(); applyGlow(clrTargetGlow, glowAmount); fill(clrTarget); noStroke(); rectMode(CENTER); rect(centerX, centerY, finalW, finalH, 5 * scaleFactor); removeGlow(); pop(); } // Uses scaled targetBox.w/h and scales corner radius
-function drawBall() { push(); applyGlow(clrBallGlow, defaultGlow); fill(clrBall); noStroke(); ellipse(ball.pos.x, ball.pos.y, ball.radius * 2, ball.radius * 2); pop(); } // Uses scaled ball.radius
-function drawElastic() { let currentAnchor = calculateAnchorPos(); if (!currentAnchor) return; let stretchVector = p5.Vector.sub(ball.pos, currentAnchor); let currentStretch = stretchVector.mag(); if (currentStretch < 2 && !ball.isHeld) return; let stretchRatio = constrain(currentStretch / scaledMaxStretch, 0, 1); let glowAmount = 4 + stretchRatio * elasticGlowIntensity; let minThickness = max(1.0, 2 * scaleFactor); let maxThickness = max(minThickness + 1, 5 * scaleFactor); let thickness = map(stretchRatio, 0, 1, minThickness, maxThickness); push(); applyGlow(clrElasticGlow, glowAmount); stroke(clrElasticBase); strokeWeight(thickness); line(currentAnchor.x, currentAnchor.y, ball.pos.x, ball.pos.y); pop(); } // Uses scaledMaxStretch and scales thickness
-function displayScore() { let scoreText = `Level: ${currentLevel + 1}`; let txtX = width * 0.03; let txtY = height * 0.07; let glowAmount = 3 + (sin(frameCount * pulseSpeed * 0.8) + 1) * 2; push(); let scaledSize = max(MIN_TEXT_SIZE, BASE_TEXT_SIZE * scaleFactor); textSize(scaledSize); textFont(gameFont); textAlign(LEFT, TOP); applyGlow(clrTextGlow, glowAmount); fill(clrTextGlow); text(scoreText, txtX + 1, txtY + 1); removeGlow(); fill(clrText); text(scoreText, txtX, txtY); pop(); } // Scales text size
-function showGameOver() { let overlayAlpha = 180; push(); let overlayColor = color(clrBackground); overlayColor.setAlpha(overlayAlpha); fill(overlayColor); noStroke(); rect(0, 0, width, height); let mainTxtSize = max(MIN_TEXT_SIZE * 1.5, 60 * scaleFactor); let subTxtSize = max(MIN_TEXT_SIZE, 28 * scaleFactor); let textY = height / 2; let lineSpacing = max(20, 50 * scaleFactor); let pulse = (sin(frameCount * pulseSpeed * 1.5) + 1) / 2; let glowAmount = 8 + pulse * 6; textFont(gameFont); textAlign(CENTER, CENTER); applyGlow(clrTextGlow, glowAmount); fill(clrText); textSize(mainTxtSize); text('GAME OVER', width / 2, textY - lineSpacing); removeGlow(); applyGlow(clrTextGlow, glowAmount * 0.6); fill(clrText); textSize(subTxtSize); text(`You reached level ${currentLevel + 1}`, width / 2, textY + lineSpacing * 0.5); removeGlow(); fill(clrText); textSize(subTxtSize * 0.9); text('Click to Restart', width / 2, textY + lineSpacing * 1.5); pop(); } // Scales text sizes and spacing
-function drawGlowingBorder() { push(); let pulse = (sin(frameCount * pulseSpeed * borderPulseSpeedFactor) + 1) / 2; let currentGlow = borderBaseGlow + pulse * borderPulseIntensity; let offset = scaledBorderStrokeWeight / 2; noFill(); stroke(clrMainAccent); strokeWeight(scaledBorderStrokeWeight); applyGlow(clrBorderGlow, currentGlow); rect(offset, offset, width - scaledBorderStrokeWeight, height - scaledBorderStrokeWeight); removeGlow(); pop(); } // Uses scaledBorderStrokeWeight
+function spawnSideParticle() { let edgeMargin = width * 0.08; let xPos = (random() < 0.5) ? random(edgeMargin) : random(width - edgeMargin, width); let yPos = random(height * 0.2, height * 1.1); let baseSize = random(1.5, 4); let particle = { pos: createVector(xPos, yPos), vel: createVector(random(-0.2, 0.2), random(-0.6, -1.2)), initialLifespan: random(120, 280), lifespan: 0, size: baseSize }; particle.lifespan = particle.initialLifespan; sideParticles.push(particle); }
+function spawnGroundParticle() { if (typeof groundLevelY !== 'number' || groundLevelY >= height) return; let xPos = random(width); let yPos = random(groundLevelY + 5, height - 5); let baseSize = random(2, 5); let particle = { pos: createVector(xPos, yPos), vel: createVector(random(-0.3, 0.3), random(-0.15, 0.15)), initialLifespan: random(100, 200), lifespan: 0, size: baseSize }; particle.lifespan = particle.initialLifespan; groundParticles.push(particle); }
+function drawPole() { push(); let currentPoleX = pole.baseX + sin(frameCount * poleSwaySpeed) * poleSwayAmount; let currentAnchor = calculateAnchorPos(); if (!currentAnchor) return; let poleTopVisibleY = height - pole.poleHeight; strokeWeight(pole.thickness); stroke(clrPoleBase); line(currentPoleX, height, currentPoleX, poleTopVisibleY); fill(clrPoleAccent); applyGlow(clrSubtleGlow, 5); noStroke(); ellipse(currentAnchor.x, currentAnchor.y, pole.thickness * 1.8, pole.thickness * 1.8); removeGlow(); pop(); }
+function drawTargetBox() { let pulse = (sin(frameCount * pulseSpeed) + 1) / 2; let scaleFactorPulse = map(pulse, 0, 1, 1.0, 1.03); let glowAmount = defaultGlow + map(pulse, 0, 1, 0, targetPulseIntensity); let centerX = targetBox.x + targetBox.w / 2; let centerY = targetBox.y + targetBox.h / 2; let finalW = targetBox.w * scaleFactorPulse; let finalH = targetBox.h * scaleFactorPulse; push(); applyGlow(clrTargetGlow, glowAmount); fill(clrTarget); noStroke(); rectMode(CENTER); rect(centerX, centerY, finalW, finalH, 5 * scaleFactor); removeGlow(); pop(); }
+function drawBall() { push(); applyGlow(clrBallGlow, defaultGlow); fill(clrBall); noStroke(); ellipse(ball.pos.x, ball.pos.y, ball.radius * 2, ball.radius * 2); pop(); }
+function drawElastic() { let currentAnchor = calculateAnchorPos(); if (!currentAnchor) return; let stretchVector = p5.Vector.sub(ball.pos, currentAnchor); let currentStretch = stretchVector.mag(); if (currentStretch < 2 && !ball.isHeld) return; let stretchRatio = constrain(currentStretch / scaledMaxStretch, 0, 1); let glowAmount = 4 + stretchRatio * elasticGlowIntensity; let minThickness = max(1.0, 2 * scaleFactor); let maxThickness = max(minThickness + 1, 5 * scaleFactor); let thickness = map(stretchRatio, 0, 1, minThickness, maxThickness); push(); applyGlow(clrElasticGlow, glowAmount); stroke(clrElasticBase); strokeWeight(thickness); line(currentAnchor.x, currentAnchor.y, ball.pos.x, ball.pos.y); pop(); }
+function displayScore() { let scoreText = `Level: ${currentLevel + 1}`; let txtX = width * 0.03; let txtY = height * 0.07; let glowAmount = 3 + (sin(frameCount * pulseSpeed * 0.8) + 1) * 2; push(); let scaledSize = max(MIN_TEXT_SIZE, BASE_TEXT_SIZE * scaleFactor); textSize(scaledSize); textFont(gameFont); textAlign(LEFT, TOP); applyGlow(clrTextGlow, glowAmount); fill(clrTextGlow); text(scoreText, txtX + 1, txtY + 1); removeGlow(); fill(clrText); text(scoreText, txtX, txtY); pop(); }
+function showGameOver() { let overlayAlpha = 180; push(); let overlayColor = color(clrBackground); overlayColor.setAlpha(overlayAlpha); fill(overlayColor); noStroke(); rect(0, 0, width, height); let mainTxtSize = max(MIN_TEXT_SIZE * 1.5, 60 * scaleFactor); let subTxtSize = max(MIN_TEXT_SIZE, 28 * scaleFactor); let textY = height / 2; let lineSpacing = max(20, 50 * scaleFactor); let pulse = (sin(frameCount * pulseSpeed * 1.5) + 1) / 2; let glowAmount = 8 + pulse * 6; textFont(gameFont); textAlign(CENTER, CENTER); applyGlow(clrTextGlow, glowAmount); fill(clrText); textSize(mainTxtSize); text('GAME OVER', width / 2, textY - lineSpacing); removeGlow(); applyGlow(clrTextGlow, glowAmount * 0.6); fill(clrText); textSize(subTxtSize); text(`You reached level ${currentLevel + 1}`, width / 2, textY + lineSpacing * 0.5); removeGlow(); fill(clrText); textSize(subTxtSize * 0.9); text('Click to Restart', width / 2, textY + lineSpacing * 1.5); pop(); }
+function drawGlowingBorder() { push(); let pulse = (sin(frameCount * pulseSpeed * borderPulseSpeedFactor) + 1) / 2; let currentGlow = borderBaseGlow + pulse * borderPulseIntensity; let offset = scaledBorderStrokeWeight / 2; noFill(); stroke(clrMainAccent); strokeWeight(scaledBorderStrokeWeight); applyGlow(clrBorderGlow, currentGlow); rect(offset, offset, width - scaledBorderStrokeWeight, height - scaledBorderStrokeWeight); removeGlow(); pop(); }
+
+// ========================================================
+// *** NEW: EXPLOSION FUNCTIONS ***
+// ========================================================
+
+// Creates a burst of explosion particles
+function spawnExplosionBurst(x, y) {
+    console.log("Spawning explosion at:", x.toFixed(1), y.toFixed(1));
+    for (let i = 0; i < NUM_EXPLOSION_PARTICLES; i++) {
+        let angle = random(TWO_PI);
+        let speed = random(EXPLOSION_SPEED_MIN * scaleFactor, EXPLOSION_SPEED_MAX * scaleFactor); // Scale speed
+        let vel = p5.Vector.fromAngle(angle).mult(speed);
+        let life = random(EXPLOSION_LIFESPAN_MIN, EXPLOSION_LIFESPAN_MAX); // Short lifespan
+        let baseSize = random(EXPLOSION_PARTICLE_SIZE_MIN, EXPLOSION_PARTICLE_SIZE_MAX);
+        let particleColor = random() < 0.6 ? clrMainAccent : clrSecondaryAccent; // Mix colors
+
+        explosionParticles.push({
+            pos: createVector(x, y),
+            vel: vel,
+            lifespan: life,
+            initialLifespan: life,
+            size: baseSize, // Store base size
+            color: particleColor
+        });
+    }
+}
+
+// Updates and draws explosion particles
+function updateAndDrawExplosionParticles() {
+    rectMode(CENTER); // Ensure squares draw from center
+    for (let i = explosionParticles.length - 1; i >= 0; i--) {
+        let p = explosionParticles[i];
+        p.pos.add(p.vel);
+        p.vel.mult(0.95); // Add some drag/friction
+        p.lifespan -= 1;
+
+        if (p.lifespan <= 0) {
+            explosionParticles.splice(i, 1);
+        } else {
+            push();
+            let alpha = map(p.lifespan, 0, p.initialLifespan, 0, 255); // Fade out
+            let currentSize = p.size * scaleFactor; // Scale size for drawing
+            let particleColor = color(p.color); // Convert hex to p5 color object
+            fill(red(particleColor), green(particleColor), blue(particleColor), alpha);
+            applyGlow(clrSubtleGlow, 5); // Subtle glow for effect
+            noStroke();
+            rect(p.pos.x, p.pos.y, currentSize, currentSize); // Draw square
+            removeGlow();
+            pop();
+        }
+    }
+    rectMode(CORNER); // Reset rectMode if needed elsewhere (though CENTER is mostly used now)
+}
+
 
 // ========================================================
 // GAME MECHANICS & PHYSICS (Using Scaled Properties)
 // ========================================================
-function aimingLogic() { let currentAnchor = calculateAnchorPos(); if (!currentAnchor) return; if (ball.isHeld) { let currentInputPos = createVector(mouseX, mouseY); let displacement = p5.Vector.sub(currentInputPos, currentAnchor); let distance = displacement.mag(); if (distance > scaledMaxStretch) { displacement.setMag(scaledMaxStretch); ball.pos = p5.Vector.add(currentAnchor, displacement); } else { ball.pos.set(currentInputPos.x, currentInputPos.y); } } else { ball.pos.set(currentAnchor.x, currentAnchor.y); } } // Uses scaledMaxStretch
+function aimingLogic() { let currentAnchor = calculateAnchorPos(); if (!currentAnchor) return; if (ball.isHeld) { let currentInputPos = createVector(mouseX, mouseY); let displacement = p5.Vector.sub(currentInputPos, currentAnchor); let distance = displacement.mag(); if (distance > scaledMaxStretch) { displacement.setMag(scaledMaxStretch); ball.pos = p5.Vector.add(currentAnchor, displacement); } else { ball.pos.set(currentInputPos.x, currentInputPos.y); } } else { ball.pos.set(currentAnchor.x, currentAnchor.y); } }
 function physicsUpdate() { if (gameState !== 'launched') return; ball.acc.add(gravity); ball.vel.add(ball.acc); ball.vel.mult(friction); ball.pos.add(ball.vel); ball.acc.mult(0); }
-function checkCollisions() { if (gameState !== 'launched') return; if (didBallHitBox()) { console.log("Target Hit!"); currentLevel++; setupLevel(); return; } let hitBorder = false; let r = ball.radius; if (ball.pos.x - r <= 0) hitBorder = true; else if (ball.pos.x + r >= width) hitBorder = true; else if (ball.pos.y - r <= 0) hitBorder = true; else if (ball.pos.y + r >= height) hitBorder = true; if (hitBorder) { gameState = 'gameOver'; console.log("Hit Border!"); return; } } // Uses scaled ball.radius
-function didBallHitBox() { let closestX = constrain(ball.pos.x, targetBox.x, targetBox.x + targetBox.w); let closestY = constrain(ball.pos.y, targetBox.y, targetBox.y + targetBox.h); let dSq = pow(ball.pos.x - closestX, 2) + pow(ball.pos.y - closestY, 2); return dSq < pow(ball.radius, 2); } // Uses scaled ball.radius, targetBox.w/h
+
+// *** UPDATED checkCollisions to trigger explosion ***
+function checkCollisions() {
+    if (gameState !== 'launched') return;
+
+    // 1. Check for target hit first
+    if (didBallHitBox()) {
+      console.log("Target Hit! Triggering Explosion.");
+      // Find approximate center of target for explosion origin
+      let targetCenterX = targetBox.x + targetBox.w / 2;
+      let targetCenterY = targetBox.y + targetBox.h / 2;
+      spawnExplosionBurst(targetCenterX, targetCenterY); // Create particles
+      gameState = 'exploding'; // Change state
+      // Optional: Make ball disappear instantly?
+      // ball.pos.y = -1000; // Move ball off screen
+      // ball.vel.mult(0);
+      return; // Exit collision check for this frame
+    }
+
+    // 2. Check for border collisions (Game Over condition)
+    let hitBorder = false; let r = ball.radius;
+    if (ball.pos.x - r <= 0) hitBorder = true; else if (ball.pos.x + r >= width) hitBorder = true;
+    else if (ball.pos.y - r <= 0) hitBorder = true; else if (ball.pos.y + r >= height) hitBorder = true;
+    if (hitBorder) { gameState = 'gameOver'; console.log("Hit Border!"); return; }
+}
+
+function didBallHitBox() { let closestX = constrain(ball.pos.x, targetBox.x, targetBox.x + targetBox.w); let closestY = constrain(ball.pos.y, targetBox.y, targetBox.y + targetBox.h); let dSq = pow(ball.pos.x - closestX, 2) + pow(ball.pos.y - closestY, 2); return dSq < pow(ball.radius, 2); }
 
 // ========================================================
 // INPUT HANDLERS (Using Scaled Properties)
 // ========================================================
-function mousePressed() { if (gameState === 'aiming') { let currentAnchor = calculateAnchorPos(); if (!currentAnchor) return false; let d = dist(mouseX, mouseY, currentAnchor.x, currentAnchor.y); if (d < ball.radius * 3.5) { ball.isHeld = true; aimingLogic(); } } else if (gameState === 'gameOver') { currentLevel = 0; setupLevel(); } return false; } // Uses scaled ball.radius
+function mousePressed() { if (gameState === 'aiming') { let currentAnchor = calculateAnchorPos(); if (!currentAnchor) return false; let d = dist(mouseX, mouseY, currentAnchor.x, currentAnchor.y); if (d < ball.radius * 3.5) { ball.isHeld = true; aimingLogic(); } } else if (gameState === 'gameOver') { currentLevel = 0; setupLevel(); } return false; }
 function mouseDragged() { if (gameState === 'aiming' && ball.isHeld) { aimingLogic(); } return false; }
 
 // *** UPDATED mouseReleased - Divide by sqrt(Scale Factor) with HIGHER BASE ***
@@ -177,13 +307,11 @@ function mouseReleased() {
         let launchVector = p5.Vector.sub(currentAnchor, ball.pos);
 
         // --- Adjust Base Multiplier for overall power level ---
-        const BASE_LAUNCH_MULTIPLIER = 1; // Higher base, adjust if needed
+        const BASE_LAUNCH_MULTIPLIER = 0.85; // Higher base, adjust if needed
 
         // Calculate effective multiplier based on scale factor
-        // Dividing by sqrt(scaleFactor) boosts power on small screens
-        // and reduces it less drastically on large screens compared to 1/SF.
         let effectiveScaleFactor = max(MIN_SCALE_FACTOR_FOR_LAUNCH, scaleFactor);
-        // *** Revert to: Divide by sqrt(effectiveScaleFactor) ***
+        // *** Divide by sqrt(effectiveScaleFactor) ***
         let effectiveMultiplier = BASE_LAUNCH_MULTIPLIER / sqrt(effectiveScaleFactor);
 
         ball.vel = launchVector.mult(elasticForce * effectiveMultiplier);
